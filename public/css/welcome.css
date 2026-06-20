@@ -1,0 +1,97 @@
+body {
+    background: #cdd9e0;
+    font-family: 'Segoe UI', sans-serif;
+    min-height: 100vh;
+}
+
+.hero-card {
+    background: #b8cdd9;
+    border-radius: 1.25rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, .15);
+}
+
+.brand-title {
+    font-size: 2.2rem;
+    font-weight: 900;
+    letter-spacing: .12em;
+    color: #1a3a4f;
+}
+
+.btn-primary-custom {
+    background: #1a3a4f;
+    color: #fff;
+    border: none;
+    border-radius: 9999px;
+    padding: .6rem 2rem;
+    font-weight: 600;
+    transition: background .2s;
+}
+
+.btn-primary-custom:hover {
+    background: #244f6b;
+    color: #fff;
+}
+
+.btn-outline-custom {
+    border: 1.5px solid #7aafc8;
+    color: #1a3a4f;
+    border-radius: 9999px;
+    padding: .6rem 2rem;
+    font-weight: 500;
+    background: transparent;
+    transition: background .2s, color .2s;
+}
+
+.btn-outline-custom:hover {
+    background: #1a3a4f;
+    color: #fff;
+}
+
+.divider-v {
+    width: 1px;
+    background: #8fb3c8;
+    align-self: stretch;
+}
+
+.stat-badge {
+    background: rgba(255, 255, 255, .42);
+    border-radius: .85rem;
+    padding: 1rem 1.2rem;
+    text-align: center;
+}
+
+.stat-num {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #1a3a4f;
+    line-height: 1;
+}
+
+.stat-lbl {
+    font-size: .75rem;
+    color: #2c5f7a;
+    margin-top: .25rem;
+}
+
+.feature-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: .75rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, .35);
+}
+
+.feature-item:last-child {
+    border-bottom: none;
+}
+
+.feature-icon {
+    width: 36px;
+    height: 36px;
+    background: rgba(26, 58, 79, .15);
+    border-radius: .5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}

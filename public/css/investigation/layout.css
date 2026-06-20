@@ -1,0 +1,38 @@
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #f0f4f7;
+}
+
+.sidebar {
+    width: 220px;
+    background: #1b3d52;
+    min-height: 100vh;
+    flex-shrink: 0;
+}
+
+.sidebar .nav-link {
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 0.9rem;
+    padding: 0.75rem 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-radius: 0;
+    transition: background 0.15s, color 0.15s;
+}
+
+.sidebar .nav-link:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.sidebar .nav-link.active {
+    background: #2a5c78;
+    color: #fff;
+    font-weight: 600;
+}
+
+.sidebar .nav-link svg {
+    flex-shrink: 0;
+    opacity: 0.85;
+}

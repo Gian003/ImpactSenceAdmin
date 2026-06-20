@@ -1,0 +1,196 @@
+/* Page wrapper */
+.irf-page {
+    background: #fff;
+    border: 1.5px solid #c8d8e4;
+    border-radius: .75rem;
+    padding: 28px 32px;
+    max-width: 860px;
+    margin: 0 auto;
+}
+
+/* Document header */
+.irf-doc-header {
+    display: grid;
+    grid-template-columns: 80px 1fr 80px;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+    margin-bottom: 0;
+}
+
+.irf-doc-header img {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+}
+
+.irf-doc-header h2 {
+    font-size: .95rem;
+    font-weight: 400;
+    margin-bottom: 2px;
+}
+
+.irf-doc-header h1 {
+    font-size: 1.15rem;
+    font-weight: 900;
+    letter-spacing: .04em;
+}
+
+/* Form table */
+.irf-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .72rem;
+    margin-top: 0;
+}
+
+.irf-table td,
+.irf-table th {
+    border: 1px solid #111;
+    padding: 3px 5px;
+    vertical-align: top;
+}
+
+/* Section header rows */
+.irf-section {
+    background: #d6d6d6;
+    text-align: center;
+    font-weight: 700;
+    font-size: .73rem;
+    padding: 4px;
+    letter-spacing: .02em;
+}
+
+.irf-subsection {
+    background: #f0f0f0;
+    text-align: center;
+    font-weight: 700;
+    font-size: .7rem;
+    padding: 3px;
+}
+
+/* Labels inside cells */
+.irf-label {
+    display: block;
+    font-size: .6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #111;
+    margin-bottom: 1px;
+    line-height: 1.2;
+}
+
+/* All fillable inputs */
+.irf-input {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: .75rem;
+    color: #1a1a1a;
+    padding: 2px 0;
+    font-family: 'Segoe UI', sans-serif;
+    min-height: 18px;
+}
+
+.irf-input:focus {
+    background: #f0f7ff;
+    border-radius: 2px;
+}
+
+.irf-textarea {
+    width: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: .75rem;
+    color: #1a1a1a;
+    resize: none;
+    font-family: 'Segoe UI', sans-serif;
+    padding: 2px 0;
+}
+
+.irf-textarea:focus {
+    background: #f0f7ff;
+    border-radius: 2px;
+}
+
+/* Instruction row */
+.irf-instruction {
+    font-size: .65rem;
+    text-align: center;
+    padding: 5px 8px;
+    border: 1px solid #111;
+}
+
+/* Bottom action bar */
+.irf-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.btn-irf-next,
+.btn-irf-generate {
+    background: #1b3d52;
+    color: #fff;
+    border: none;
+    border-radius: .5rem;
+    padding: .6rem 2.5rem;
+    font-size: .95rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    cursor: pointer;
+    transition: background .2s;
+}
+
+.btn-irf-next:hover,
+.btn-irf-generate:hover {
+    background: #244f6b;
+}
+
+/* Progress report table */
+.progress-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .8rem;
+}
+
+.progress-table th {
+    border: 1px solid #111;
+    background: #e0e0e0;
+    text-align: center;
+    font-weight: 700;
+    font-size: .72rem;
+    padding: 6px;
+    letter-spacing: .05em;
+}
+
+.progress-table td {
+    border: 1px solid #111;
+    vertical-align: top;
+    padding: 4px 6px;
+    height: 520px;
+}
+
+.progress-table td input,
+.progress-table td textarea {
+    width: 100%;
+    height: 100%;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: .8rem;
+    font-family: 'Segoe UI', sans-serif;
+    resize: none;
+    vertical-align: top;
+}
+
+/* Print styles */
+@media print {
+    body * { visibility: hidden; }
+    .irf-printable, .irf-printable * { visibility: visible; }
+    .irf-printable { position: absolute; top: 0; left: 0; width: 100%; }
+    .irf-actions { display: none !important; }
+    .sidebar { display: none !important; }
+}

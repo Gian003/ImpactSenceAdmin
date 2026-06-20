@@ -1,0 +1,177 @@
+/* Top action bar */
+.report-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.btn-report {
+    border: 1.5px solid #c8d8e4;
+    background: #fff;
+    color: #1b3d52;
+    border-radius: .5rem;
+    padding: .45rem 1.6rem;
+    font-size: .88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+
+.btn-report:hover {
+    background: #1b3d52;
+    color: #fff;
+    border-color: #1b3d52;
+}
+
+/* Main grid layout */
+.report-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.report-bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+/* Cards */
+.report-card {
+    background: #fff;
+    border: 1.5px solid #d1dde6;
+    border-radius: .85rem;
+    padding: 22px 24px;
+}
+
+/* Summary card */
+.incident-icon {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 18px;
+}
+
+.incident-icon svg {
+    width: 90px;
+    height: 70px;
+    color: #1a1a1a;
+}
+
+.summary-field {
+    margin-bottom: 12px;
+}
+
+.summary-field .field-label {
+    font-size: .88rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 2px;
+}
+
+.summary-field .field-value {
+    font-size: .85rem;
+    color: #374151;
+}
+
+/* Details card */
+.details-section-title {
+    font-size: .92rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 8px;
+}
+
+.details-description {
+    font-size: .83rem;
+    color: #4b5563;
+    line-height: 1.55;
+    margin-bottom: 18px;
+}
+
+.involved-list {
+    list-style: disc;
+    padding-left: 18px;
+    margin: 0;
+}
+
+.involved-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: .84rem;
+    color: #374151;
+    padding: 4px 0;
+}
+
+.involved-list li .inv-label {
+    font-weight: 500;
+}
+
+.involved-list li .inv-value {
+    color: #1f2937;
+    margin-left: 8px;
+}
+
+/* Timeline */
+.timeline-title {
+    font-size: .92rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 14px;
+}
+
+.timeline-log {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 4px;
+}
+
+.timeline-entry {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    font-size: .83rem;
+}
+
+.timeline-time {
+    color: #6b7280;
+    white-space: nowrap;
+    min-width: 62px;
+    font-weight: 500;
+}
+
+.timeline-text {
+    color: #374151;
+    line-height: 1.4;
+}
+
+/* Map */
+.map-title {
+    font-size: .92rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 14px;
+}
+
+.map-container {
+    border-radius: .6rem;
+    overflow: hidden;
+    height: 250px;
+    border: 1px solid #d1dde6;
+}
+
+#reportMap {
+    width: 100%;
+    height: 100%;
+}
+
+/* Print */
+@media print {
+    .report-actions { display: none !important; }
+    .sidebar { display: none !important; }
+    body { background: #fff; }
+    .report-card { break-inside: avoid; }
+}

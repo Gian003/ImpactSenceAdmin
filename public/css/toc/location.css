@@ -1,0 +1,165 @@
+/* Accident alert cards */
+.alert-accident {
+    background: #fde8e8;
+    border: 2px solid #d97070;
+    border-radius: .75rem;
+    position: relative;
+}
+
+.alert-bang {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: #1a1a1a;
+    color: #fff;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 1rem;
+}
+
+/* Map container */
+.map-wrap {
+    position: relative;
+    border-radius: 1rem;
+    overflow: hidden;
+    border: 1.5px solid #c0d4e0;
+    height: 480px;
+    background: #e8f0f5;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+}
+
+/* Map legend toggle card */
+.map-legend-card {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 800;
+    background: rgba(255, 255, 255, .97);
+    border-radius: .5rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .14);
+    min-width: 185px;
+    overflow: hidden;
+}
+
+.legend-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: left;
+    font-size: .82rem;
+    font-weight: 500;
+    color: #222;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background .12s, color .12s;
+}
+
+.legend-btn:last-of-type {
+    border-bottom: none;
+}
+
+.legend-btn:hover {
+    background: #f5f9fc;
+    color: #1b3d52;
+}
+
+.legend-btn.active {
+    background: #e8f2f8;
+    color: #1b3d52;
+    font-weight: 700;
+}
+
+/* Accident prone area sub-legend */
+.prone-sub {
+    display: none;
+    padding: 8px 14px 10px;
+    border-top: 1px solid #eee;
+    gap: 5px;
+    flex-direction: column;
+}
+
+.prone-sub.show {
+    display: flex;
+}
+
+.prone-dot {
+    width: 16px;
+    height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+/* Map overlay panels */
+.map-panel {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    z-index: 800;
+    display: none;
+}
+
+.map-panel.show {
+    display: block;
+}
+
+.patrollers-panel {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    z-index: 800;
+    display: none;
+}
+
+.patrollers-panel.show {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+/* Panel card (speed reports / patrollers) */
+.panel-card {
+    background: rgba(255, 255, 255, .97);
+    border-radius: .75rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .13);
+    overflow: hidden;
+}
+
+.panel-card table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.panel-card th {
+    padding: 11px 15px;
+    font-size: .83rem;
+    font-weight: 700;
+    text-align: left;
+    background: #fff;
+    border-bottom: 1px solid #eee;
+}
+
+.panel-card td {
+    padding: 9px 15px;
+    font-size: .79rem;
+    color: #374151;
+    border-bottom: 1px solid #f5f5f5;
+    vertical-align: top;
+}
+
+.panel-card tr:last-child td {
+    border-bottom: none;
+}
