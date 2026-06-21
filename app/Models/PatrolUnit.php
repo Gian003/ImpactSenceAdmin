@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -32,9 +33,14 @@ class PatrolUnit extends Authenticatable
     protected function casts(): array
     {
         return [
-            'current_latitude' => 'decimal:7',
+            'current_latitude'  => 'decimal:7',
             'current_longitude' => 'decimal:7',
-            'password' => 'hashed',
+            'password'          => 'hashed',
         ];
+    }
+
+    public function incidents(): HasMany
+    {
+        return $this->hasMany(Incident::class);
     }
 }

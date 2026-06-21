@@ -78,7 +78,7 @@
                  class="rounded-circle" style="object-fit:contain;" onerror="this.style.display='none'">
             <div class="text-white lh-sm" style="font-size:.78rem;">
                 <div class="fw-bold">PNP TCO</div>
-                <div style="opacity:.65; font-size:.7rem;">{{ Auth::user()->name ?? 'Admin' }}</div>
+                <div style="opacity:.65; font-size:.7rem;">{{ Auth::guard('toc')->user()->full_name ?? 'Admin' }}</div>
             </div>
         </div>
 

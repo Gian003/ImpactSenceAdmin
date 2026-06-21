@@ -1,8 +1,8 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 
 // ── PUBLIC ────────────────────────────────────────────────────────────────────
 Route::get('/', fn () => view('welcome'));
@@ -16,12 +16,18 @@ Route::post('/login', function (Request $request) {
         'password' => ['required'],
     ]);
 
-    if (Auth::attempt($credentials, $request->boolean('remember'))) {
-        $request->session()->regenerate();
+    $remember = $request->boolean('remember');
 
-        // Redirect to the user's department dashboard based on their role
-        $role = Auth::user()->role;
-        return redirect()->intended(route($role . '.dashboard'));
+    // Try TOC guard first
+    if (Auth::guard('toc')->attempt($credentials, $remember)) {
+        $request->session()->regenerate();
+        return redirect()->intended(route('toc.dashboard'));
+    }
+
+    // Try Investigation guard
+    if (Auth::guard('investigation')->attempt($credentials, $remember)) {
+        $request->session()->regenerate();
+        return redirect()->intended(route('investigation.dashboard'));
     }
 
     return back()->withErrors([
@@ -30,7 +36,8 @@ Route::post('/login', function (Request $request) {
 });
 
 Route::post('/logout', function (Request $request) {
-    Auth::logout();
+    Auth::guard('toc')->logout();
+    Auth::guard('investigation')->logout();
     $request->session()->invalidate();
     $request->session()->regenerateToken();
     return redirect()->route('login');
@@ -39,7 +46,7 @@ Route::post('/logout', function (Request $request) {
 // ── TOC — Tactical Operations Center ─────────────────────────────────────────
 Route::prefix('toc')
     ->name('toc.')
-    ->middleware(['auth', 'role:toc'])
+    ->middleware('auth:toc')
     ->group(function () {
         Route::get('/dashboard',         fn () => view('toc.dashboard.index'))   ->name('dashboard');
         Route::get('/location-tracking', fn () => view('toc.location.index'))    ->name('location.tracking');
@@ -50,7 +57,7 @@ Route::prefix('toc')
 // ── INVESTIGATION — Investigation PCO ────────────────────────────────────────
 Route::prefix('investigation')
     ->name('investigation.')
-    ->middleware(['auth', 'role:investigation'])
+    ->middleware('auth:investigation')
     ->group(function () {
         Route::get('/dashboard',          fn () => view('investigation.dashboard.index'))         ->name('dashboard');
         Route::get('/incidents',          fn () => view('investigation.incidents.index'))         ->name('incidents.index');
@@ -58,12 +65,3 @@ Route::prefix('investigation')
         Route::get('/incident-report',    fn () => view('investigation.incident-report.index'))   ->name('incident-report.index');
         Route::get('/helmet',             fn () => view('investigation.helmet.index'))            ->name('helmet.index');
     });
-
-// ── ADD NEW DEPARTMENTS BELOW ─────────────────────────────────────────────────
-// Example: Field Operations Unit
-// Route::prefix('field')
-//     ->name('field.')
-//     ->middleware(['auth', 'role:field'])
-//     ->group(function () {
-//         Route::get('/dashboard', fn () => view('field.dashboard.index'))->name('dashboard');
-//     });

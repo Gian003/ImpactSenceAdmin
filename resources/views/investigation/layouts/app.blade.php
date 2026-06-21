@@ -97,7 +97,7 @@
                  class="rounded-circle" style="object-fit:contain;" onerror="this.style.display='none'">
             <div class="text-white lh-sm" style="font-size:.78rem;">
                 <div class="fw-bold">Investigation</div>
-                <div style="opacity:.65; font-size:.7rem;">PCO</div>
+                <div style="opacity:.65; font-size:.7rem;">{{ Auth::guard('investigation')->user()->full_name ?? 'Officer' }}</div>
             </div>
         </div>
 

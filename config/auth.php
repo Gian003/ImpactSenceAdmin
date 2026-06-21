@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\InvestigationOfficer;
+use App\Models\TocPersonnel;
 use App\Models\User;
 
 return [
@@ -39,8 +41,16 @@ return [
 
     'guards' => [
         'web' => [
-            'driver' => 'session',
+            'driver'   => 'session',
             'provider' => 'users',
+        ],
+        'toc' => [
+            'driver'   => 'session',
+            'provider' => 'toc_personnel',
+        ],
+        'investigation' => [
+            'driver'   => 'session',
+            'provider' => 'investigation_officers',
         ],
     ],
 
@@ -64,13 +74,16 @@ return [
     'providers' => [
         'users' => [
             'driver' => 'eloquent',
-            'model' => env('AUTH_MODEL', User::class),
+            'model'  => env('AUTH_MODEL', User::class),
         ],
-
-        // 'users' => [
-        //     'driver' => 'database',
-        //     'table' => 'users',
-        // ],
+        'toc_personnel' => [
+            'driver' => 'eloquent',
+            'model'  => TocPersonnel::class,
+        ],
+        'investigation_officers' => [
+            'driver' => 'eloquent',
+            'model'  => InvestigationOfficer::class,
+        ],
     ],
 
     /*
