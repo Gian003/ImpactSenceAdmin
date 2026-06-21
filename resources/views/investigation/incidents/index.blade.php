@@ -9,27 +9,31 @@
 @section('content')
 
 {{-- FILTER BAR --}}
-<div class="filter-bar">
+<div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
 
     {{-- Search --}}
-    <div class="filter-search">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round"
-             stroke-linejoin="round" viewBox="0 0 24 24">
-            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <input type="text" id="searchInput" placeholder="Search Incidents...">
+    <div class="input-group flex-grow-1" style="min-width:200px;">
+        <span class="input-group-text bg-white" style="border-color:#c8d8e4;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none"
+                 stroke="#6b7280" stroke-width="2" stroke-linecap="round"
+                 stroke-linejoin="round" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+        </span>
+        <input type="text" id="searchInput" class="form-control"
+               placeholder="Search Incidents..."
+               style="border-color:#c8d8e4;">
     </div>
 
     {{-- Status filter --}}
-    <select class="filter-select" id="statusFilter">
+    <select class="form-select" id="statusFilter" style="max-width:150px; border-color:#c8d8e4;">
         <option value="">All Status</option>
         <option value="Active">Active</option>
         <option value="Resolved">Resolved</option>
     </select>
 
     {{-- Date filter --}}
-    <select class="filter-select" id="dateFilter">
+    <select class="form-select" id="dateFilter" style="max-width:150px; border-color:#c8d8e4;">
         <option value="">All Dates</option>
         <option value="April">April</option>
         <option value="March">March</option>
@@ -37,7 +41,10 @@
     </select>
 
     {{-- Export --}}
-    <button class="btn-export" onclick="exportTable()">Export</button>
+    <button class="btn text-white fw-semibold px-4" onclick="exportTable()"
+            style="background:#1b3d52; border-color:#1b3d52;">
+        Export
+    </button>
 
 </div>
 

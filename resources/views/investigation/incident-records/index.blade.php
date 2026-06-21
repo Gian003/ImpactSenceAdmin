@@ -18,12 +18,12 @@
 
     {{-- Document Header --}}
     <div class="irf-doc-header mb-2">
-        <img src="{{ asset('images/pnp-logo.png') }}" alt="PNP" onerror="this.style.display='none'">
+        <img src="{{ asset('images/pnp.png') }}" alt="PNP" onerror="this.style.display='none'">
         <div>
             <h2>Philippine National Police</h2>
             <h1>INCIDENT RECORD FORM</h1>
         </div>
-        <img src="{{ asset('images/pnp-logo.png') }}" alt="PNP" onerror="this.style.display='none'">
+        <img src="{{ asset('images/pnp.png') }}" alt="PNP" onerror="this.style.display='none'">
     </div>
 
     <table class="irf-table">

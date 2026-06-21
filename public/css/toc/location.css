@@ -1,28 +1,4 @@
-/* Accident alert cards */
-.alert-accident {
-    background: #fde8e8;
-    border: 2px solid #d97070;
-    border-radius: .75rem;
-    position: relative;
-}
-
-.alert-bang {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    background: #1a1a1a;
-    color: #fff;
-    border-radius: 50%;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 900;
-    font-size: 1rem;
-}
-
-/* Map container */
+/* Map container — Bootstrap cannot position/size this */
 .map-wrap {
     position: relative;
     border-radius: 1rem;
@@ -37,7 +13,7 @@
     height: 100%;
 }
 
-/* Map legend toggle card */
+/* Map legend toggle card (top-right overlay) */
 .map-legend-card {
     position: absolute;
     top: 12px;
@@ -67,22 +43,11 @@
     transition: background .12s, color .12s;
 }
 
-.legend-btn:last-of-type {
-    border-bottom: none;
-}
+.legend-btn:last-of-type  { border-bottom: none; }
+.legend-btn:hover         { background: #f5f9fc; color: #1b3d52; }
+.legend-btn.active        { background: #e8f2f8; color: #1b3d52; font-weight: 700; }
 
-.legend-btn:hover {
-    background: #f5f9fc;
-    color: #1b3d52;
-}
-
-.legend-btn.active {
-    background: #e8f2f8;
-    color: #1b3d52;
-    font-weight: 700;
-}
-
-/* Accident prone area sub-legend */
+/* Accident prone area colour sub-legend */
 .prone-sub {
     display: none;
     padding: 8px 14px 10px;
@@ -90,10 +55,7 @@
     gap: 5px;
     flex-direction: column;
 }
-
-.prone-sub.show {
-    display: flex;
-}
+.prone-sub.show { display: flex; }
 
 .prone-dot {
     width: 16px;
@@ -102,7 +64,7 @@
     flex-shrink: 0;
 }
 
-/* Map overlay panels */
+/* Map overlay panels (bottom-left, toggled by legend buttons) */
 .map-panel {
     position: absolute;
     bottom: 20px;
@@ -110,10 +72,7 @@
     z-index: 800;
     display: none;
 }
-
-.map-panel.show {
-    display: block;
-}
+.map-panel.show { display: block; }
 
 .patrollers-panel {
     position: absolute;
@@ -123,14 +82,13 @@
     z-index: 800;
     display: none;
 }
-
 .patrollers-panel.show {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
 }
 
-/* Panel card (speed reports / patrollers) */
+/* Panel card shared by Speed and Patrollers panels */
 .panel-card {
     background: rgba(255, 255, 255, .97);
     border-radius: .75rem;
@@ -138,10 +96,7 @@
     overflow: hidden;
 }
 
-.panel-card table {
-    width: 100%;
-    border-collapse: collapse;
-}
+.panel-card table { width: 100%; border-collapse: collapse; }
 
 .panel-card th {
     padding: 11px 15px;
@@ -160,6 +115,4 @@
     vertical-align: top;
 }
 
-.panel-card tr:last-child td {
-    border-bottom: none;
-}
+.panel-card tr:last-child td { border-bottom: none; }

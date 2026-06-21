@@ -10,61 +10,73 @@
 @endpush
 
 @push('styles')
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="{{ asset('css/toc/location.css') }}">
 @endpush
 
 @section('content')
 
+{{-- ACCIDENT ALERT CARDS --}}
 <div class="row g-3 mb-3">
+
+    {{-- Alert 1 --}}
     <div class="col-md-6">
-        <div class="alert-accident p-3">
-            <div class="alert-bang">!</div>
+        <div class="p-3 position-relative rounded-3 border border-2"
+             style="background:#fde8e8; border-color:#d97070 !important;">
+            <span class="position-absolute rounded-circle d-flex align-items-center justify-content-center fw-black text-white"
+                  style="top:12px; right:12px; width:28px; height:28px; background:#1a1a1a; font-size:1rem;">!</span>
             <h6 class="fw-bold mb-3">Accident Alert!</h6>
             <div class="row g-2">
                 <div class="col-6">
-                    <div class="d-flex align-items-center gap-1 mb-1" style="font-size:.75rem; font-weight:700;">
+                    <div class="d-flex align-items-center gap-1 mb-1 fw-bold" style="font-size:.75rem;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                         Rester Mendoza
                     </div>
-                    <div class="ps-3" style="font-size:.8rem; color:#333;">09123456789</div>
+                    <div class="ps-3 text-dark" style="font-size:.8rem;">09123456789</div>
                 </div>
                 <div class="col-6">
-                    <div class="d-flex align-items-center gap-1 mb-1" style="font-size:.75rem; font-weight:700;">
+                    <div class="d-flex align-items-center gap-1 mb-1 fw-bold" style="font-size:.75rem;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
                         Current Location
                     </div>
-                    <div class="ps-3 lh-sm" style="font-size:.8rem; color:#333;">Barangay Pinmaludpod,<br>Urdaneta City, Pangasinan</div>
+                    <div class="ps-3 lh-sm text-dark" style="font-size:.8rem;">Barangay Pinmaludpod,<br>Urdaneta City, Pangasinan</div>
                 </div>
             </div>
         </div>
     </div>
+
+    {{-- Alert 2 --}}
     <div class="col-md-6">
-        <div class="alert-accident p-3">
-            <div class="alert-bang">!</div>
+        <div class="p-3 position-relative rounded-3 border border-2"
+             style="background:#fde8e8; border-color:#d97070 !important;">
+            <span class="position-absolute rounded-circle d-flex align-items-center justify-content-center fw-black text-white"
+                  style="top:12px; right:12px; width:28px; height:28px; background:#1a1a1a; font-size:1rem;">!</span>
             <h6 class="fw-bold mb-3">Accident Alert!</h6>
             <div class="row g-2">
                 <div class="col-6">
-                    <div class="d-flex align-items-center gap-1 mb-1" style="font-size:.75rem; font-weight:700;">
+                    <div class="d-flex align-items-center gap-1 mb-1 fw-bold" style="font-size:.75rem;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                         Darnil Castanieto
                     </div>
-                    <div class="ps-3" style="font-size:.8rem; color:#333;">09123456789</div>
+                    <div class="ps-3 text-dark" style="font-size:.8rem;">09123456789</div>
                 </div>
                 <div class="col-6">
-                    <div class="d-flex align-items-center gap-1 mb-1" style="font-size:.75rem; font-weight:700;">
+                    <div class="d-flex align-items-center gap-1 mb-1 fw-bold" style="font-size:.75rem;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
                         Current Location
                     </div>
-                    <div class="ps-3 lh-sm" style="font-size:.8rem; color:#333;">Barangay Cabuloan,<br>Urdaneta City, Pangasinan</div>
+                    <div class="ps-3 lh-sm text-dark" style="font-size:.8rem;">Barangay Cabuloan,<br>Urdaneta City, Pangasinan</div>
                 </div>
             </div>
         </div>
     </div>
+
 </div>
 
+{{-- MAP + OVERLAYS --}}
 <div class="map-wrap">
     <div id="map"></div>
+
+    {{-- Legend toggle card --}}
     <div class="map-legend-card">
         <button class="legend-btn" id="btnSpeed" onclick="togglePanel('speed')">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>
@@ -84,6 +96,8 @@
             Patrollers
         </button>
     </div>
+
+    {{-- Speed Reports panel --}}
     <div class="map-panel" id="speedPanel">
         <div class="panel-card" style="min-width:380px;">
             <table>
@@ -96,6 +110,8 @@
             </table>
         </div>
     </div>
+
+    {{-- Patrollers panel --}}
     <div class="patrollers-panel" id="patrollersPanel">
         <div class="panel-card">
             <table>
@@ -123,30 +139,73 @@
 @endsection
 
 @push('scripts')
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const map = L.map('map', { zoomControl: true }).setView([15.9755, 120.5651], 14);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 18 }).addTo(map);
-    const redIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png', iconSize: [25,41], iconAnchor: [12,41], popupAnchor: [1,-34], shadowSize: [41,41] });
-    L.marker([15.963, 120.553], { icon: redIcon }).addTo(map).bindPopup('<b>Rester Mendoza</b><br>Brgy. Pinmaludpod');
-    L.marker([15.981, 120.582], { icon: redIcon }).addTo(map).bindPopup('<b>Darnil Castanieto</b><br>Brgy. Cabuloan');
-    const proneGroup = L.layerGroup([
-        L.polygon([[15.972,120.545],[15.970,120.565],[15.960,120.560],[15.962,120.540]], { color:'#e53e3e', fillColor:'#e53e3e', fillOpacity:.35, weight:1 }),
-        L.polygon([[15.978,120.572],[15.976,120.590],[15.965,120.588],[15.967,120.570]], { color:'#e53e3e', fillColor:'#e53e3e', fillOpacity:.35, weight:1 }),
-        L.polygon([[15.985,120.553],[15.983,120.570],[15.972,120.568],[15.974,120.550]], { color:'#dd6b20', fillColor:'#dd6b20', fillOpacity:.30, weight:1 }),
-        L.polygon([[15.958,120.570],[15.956,120.588],[15.945,120.585],[15.947,120.567]], { color:'#d69e2e', fillColor:'#d69e2e', fillOpacity:.28, weight:1 }),
-    ]);
+function initMap() {
+    const center = { lat: 15.9755, lng: 120.5651 };
+
+    const map = new google.maps.Map(document.getElementById('map'), {
+        center,
+        zoom: 14,
+        mapTypeId: 'roadmap',
+        zoomControl: true,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+    });
+
+    const infoWindow = new google.maps.InfoWindow();
+
+    const redDotIcon = {
+        url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+        scaledSize: new google.maps.Size(32, 32),
+    };
+
+    function addMarker(lat, lng, name, address) {
+        const marker = new google.maps.Marker({ position: { lat, lng }, map, icon: redDotIcon, title: name });
+        marker.addListener('click', () => {
+            infoWindow.setContent(`<b>${name}</b><br>${address}`);
+            infoWindow.open(map, marker);
+        });
+        return marker;
+    }
+
+    addMarker(15.963, 120.553, 'Rester Mendoza',    'Brgy. Pinmaludpod, Urdaneta City');
+    addMarker(15.981, 120.582, 'Darnil Castanieto', 'Brgy. Cabuloan, Urdaneta City');
+
+    // Accident-prone area polygons (shown when "Accident Prone Area" is toggled)
+    const pronePolygons = [
+        new google.maps.Polygon({ paths: [{lat:15.972,lng:120.545},{lat:15.970,lng:120.565},{lat:15.960,lng:120.560},{lat:15.962,lng:120.540}], strokeColor:'#e53e3e', strokeWeight:1, fillColor:'#e53e3e', fillOpacity:.35 }),
+        new google.maps.Polygon({ paths: [{lat:15.978,lng:120.572},{lat:15.976,lng:120.590},{lat:15.965,lng:120.588},{lat:15.967,lng:120.570}], strokeColor:'#e53e3e', strokeWeight:1, fillColor:'#e53e3e', fillOpacity:.35 }),
+        new google.maps.Polygon({ paths: [{lat:15.985,lng:120.553},{lat:15.983,lng:120.570},{lat:15.972,lng:120.568},{lat:15.974,lng:120.550}], strokeColor:'#dd6b20', strokeWeight:1, fillColor:'#dd6b20', fillOpacity:.30 }),
+        new google.maps.Polygon({ paths: [{lat:15.958,lng:120.570},{lat:15.956,lng:120.588},{lat:15.945,lng:120.585},{lat:15.947,lng:120.567}], strokeColor:'#d69e2e', strokeWeight:1, fillColor:'#d69e2e', fillOpacity:.28 }),
+    ];
+
     let activePanel = null;
-    function togglePanel(panel) {
+
+    window.togglePanel = function(panel) {
         const els  = { speed: document.getElementById('speedPanel'), patrollers: document.getElementById('patrollersPanel') };
         const btns = { speed: document.getElementById('btnSpeed'), prone: document.getElementById('btnProne'), patrollers: document.getElementById('btnPatrollers') };
         const proneSub = document.getElementById('proneSub');
-        if (activePanel === panel) { Object.values(els).forEach(e => e.classList.remove('show')); Object.values(btns).forEach(b => b.classList.remove('active')); proneSub.classList.remove('show'); proneGroup.removeFrom(map); activePanel = null; return; }
-        Object.values(els).forEach(e => e.classList.remove('show')); Object.values(btns).forEach(b => b.classList.remove('active')); proneSub.classList.remove('show'); proneGroup.removeFrom(map);
-        activePanel = panel; btns[panel].classList.add('active');
-        if (panel === 'speed') els.speed.classList.add('show');
-        if (panel === 'patrollers') els.patrollers.classList.add('show');
-        if (panel === 'prone') { proneSub.classList.add('show'); proneGroup.addTo(map); }
-    }
+
+        const closing = activePanel === panel;
+
+        // Reset everything
+        Object.values(els).forEach(e => e.classList.remove('show'));
+        Object.values(btns).forEach(b => b.classList.remove('active'));
+        proneSub.classList.remove('show');
+        pronePolygons.forEach(p => p.setMap(null));
+        activePanel = null;
+
+        if (closing) return;
+
+        // Activate chosen panel
+        activePanel = panel;
+        btns[panel].classList.add('active');
+        if (panel === 'speed')       els.speed.classList.add('show');
+        if (panel === 'patrollers')  els.patrollers.classList.add('show');
+        if (panel === 'prone')       { proneSub.classList.add('show'); pronePolygons.forEach(p => p.setMap(map)); }
+    };
+}
 </script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA1Pg5n88KZWoCCmyEM_1ohx-elRiAVWtY&callback=initMap" async defer></script>
 @endpush

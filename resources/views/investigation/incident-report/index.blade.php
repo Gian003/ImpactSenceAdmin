@@ -3,7 +3,6 @@
 @section('title', 'Incident Report')
 
 @push('styles')
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="{{ asset('css/investigation/incident-report.css') }}">
 @endpush
 
@@ -166,27 +165,35 @@
 @endsection
 
 @push('scripts')
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    const lat = {{ $lat }};
-    const lng = {{ $lng }};
+    function initReportMap() {
+        const lat = {{ $lat }};
+        const lng = {{ $lng }};
 
-    const map = L.map('reportMap', { zoomControl: true }).setView([lat, lng], 14);
+        const map = new google.maps.Map(document.getElementById('reportMap'), {
+            center: { lat, lng },
+            zoom: 14,
+            mapTypeId: 'roadmap',
+            zoomControl: true,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false,
+        });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors', maxZoom: 18
-    }).addTo(map);
+        const marker = new google.maps.Marker({
+            position: { lat, lng },
+            map,
+            icon: {
+                url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                scaledSize: new google.maps.Size(32, 32),
+            },
+        });
 
-    const redIcon = L.icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-        iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
-    });
-
-    L.marker([lat, lng], { icon: redIcon })
-        .addTo(map)
-        .bindPopup('<b>{{ $fullName }}</b><br>{{ $location }}')
-        .openPopup();
+        const infoWindow = new google.maps.InfoWindow({
+            content: '<b>{{ $fullName }}</b><br>{{ $location }}',
+        });
+        infoWindow.open(map, marker);
+    }
 
     function exportReport() {
         const content = document.querySelector('.content').innerHTML;
@@ -207,4 +214,5 @@
         setTimeout(() => { win.print(); win.close(); }, 800);
     }
 </script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA1Pg5n88KZWoCCmyEM_1ohx-elRiAVWtY&callback=initReportMap" async defer></script>
 @endpush
