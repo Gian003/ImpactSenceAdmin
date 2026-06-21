@@ -15,7 +15,7 @@
 
             {{-- LEFT PANEL --}}
             <div class="d-flex flex-column align-items-center justify-content-center text-center pe-3" style="flex:1;">
-                <img src="{{ asset('images/pnp-logo.png') }}" alt="PNP Urdaneta Logo"
+                <img src="{{ asset('images/pnp-urdaneta.png') }}" alt="Urdaneta City Police Station"
                      width="140" height="140" style="object-fit:contain;"
                      class="mb-3" onerror="this.style.display='none'">
                 <h1 class="fw-black mb-2" style="font-size:1.4rem; letter-spacing:.1em; color:#1a3a4f;">
@@ -34,7 +34,7 @@
             <div class="d-flex flex-column justify-content-center" style="flex:1;">
 
                 <div class="d-flex align-items-center gap-2 mb-1">
-                    <img src="{{ asset('images/impactsense-icon.png') }}" alt="Icon"
+                    <img src="{{ asset('images/impactsense.png') }}" alt="ImpactSense"
                          width="38" height="38" style="object-fit:contain;"
                          onerror="this.style.display='none'">
                     <h2 class="fw-bold mb-0" style="color:#1a3a4f;">Welcome Back!</h2>

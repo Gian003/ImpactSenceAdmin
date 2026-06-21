@@ -17,7 +17,7 @@
     <aside class="sidebar d-flex flex-column">
 
         <div class="d-flex align-items-center gap-2 p-3 border-bottom border-white border-opacity-10">
-            <img src="{{ asset('images/pnp-logo.png') }}" alt="PNP Logo" width="44" height="44"
+            <img src="{{ asset('images/pnp-urdaneta.png') }}" alt="PNP Logo" width="44" height="44"
                  style="object-fit:contain;" onerror="this.style.display='none'">
             <div class="text-white fw-bold lh-sm" style="font-size:.85rem; letter-spacing:.03em;">
                 PNP<br>URDANETA
@@ -74,7 +74,7 @@
         </nav>
 
         <div class="d-flex align-items-center gap-2 p-3 border-top border-white border-opacity-10">
-            <img src="{{ asset('images/pnp-logo.png') }}" alt="PNP" width="38" height="38"
+            <img src="{{ asset('images/pnp-urdaneta.png') }}" alt="PNP" width="38" height="38"
                  class="rounded-circle" style="object-fit:contain;" onerror="this.style.display='none'">
             <div class="text-white lh-sm" style="font-size:.78rem;">
                 <div class="fw-bold">PNP TCO</div>
