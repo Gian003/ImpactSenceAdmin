@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Events\IncidentReported;
+use App\Events\IncidentStatusUpdated;
 use App\Events\PatrolDispatched;
 use App\Http\Controllers\Controller;
 use App\Models\Incident;
@@ -13,8 +14,8 @@ use Illuminate\Validation\Rule;
 
 class IncidentController extends Controller
 {
-    // Rider: report a new accident detected by the helmet
-    public function store(Request $request): JsonResponse
+    // Rider phone app: report a crash detected by the helmet via Bluetooth
+    public function store(Request $request, FcmService $fcm): JsonResponse
     {
         $data = $request->validate([
             'type'      => ['sometimes', 'string'],
@@ -24,8 +25,8 @@ class IncidentController extends Controller
             'severity'  => ['sometimes', Rule::in(['low', 'medium', 'high', 'critical'])],
         ]);
 
-        $rider   = $request->user();
-        $helmet  = $rider->helmet;
+        $rider  = $request->user();
+        $helmet = $rider->helmet;
 
         $incident = Incident::create([
             ...$data,
@@ -34,8 +35,18 @@ class IncidentController extends Controller
             'status'    => 'pending',
         ]);
 
+        $incident->load(['rider', 'helmet']);
+
         // Broadcast to TOC dashboard via Pusher
-        broadcast(new IncidentReported($incident->load(['rider', 'helmet'])))->toOthers();
+        broadcast(new IncidentReported($incident))->toOthers();
+
+        // FCM push to rider — confirm the report was received
+        $fcm->notifyRider(
+            $rider,
+            'Crash Reported',
+            'Your incident has been reported. TOC has been alerted.',
+            ['incident_id' => (string) $incident->id, 'type' => 'crash_confirmed']
+        );
 
         return $this->apiResponse(true, 'Incident reported', $incident, 201);
     }
@@ -118,6 +129,9 @@ class IncidentController extends Controller
                 ['incident_id' => (string) $incident->id, 'type' => 'resolved']
             );
         }
+
+        // Always broadcast status change back to TOC dashboard
+        broadcast(new IncidentStatusUpdated($incident));
 
         return $this->apiResponse(true, 'Status updated', $incident->fresh());
     }

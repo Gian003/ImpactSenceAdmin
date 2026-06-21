@@ -1,11 +1,18 @@
 <?php
 
+use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\EmergencyContactController;
 use App\Http\Controllers\Api\HelmetController;
 use App\Http\Controllers\Api\IncidentController;
 use App\Http\Controllers\Api\PatrolAuthController;
 use App\Http\Controllers\Api\RiderAuthController;
 use Illuminate\Support\Facades\Route;
+
+// ── IOT DEVICE ────────────────────────────────────────────────────────────────
+// No Sanctum token — authenticated by device_code only
+Route::prefix('device')->group(function () {
+    Route::post('incident', [DeviceController::class, 'reportIncident']);
+});
 
 // ── RIDER ─────────────────────────────────────────────────────────────────────
 Route::prefix('rider')->group(function () {

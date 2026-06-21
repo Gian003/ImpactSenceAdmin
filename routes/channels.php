@@ -5,8 +5,7 @@ use Illuminate\Support\Facades\Broadcast;
 // Public channel — TOC dashboard listens for all new incidents
 Broadcast::channel('incidents', fn () => true);
 
-// Private channel — each patrol unit only receives its own dispatches
-// Channel name: patrol.{patrol_unit_id}
-Broadcast::channel('patrol.{patrolUnitId}', function ($user, int $patrolUnitId) {
-    return (int) $user->id === $patrolUnitId;
-});
+// Public channel — each patrol unit listens on patrol.{id}
+// No auth needed here because the channel is public (Channel, not PrivateChannel).
+// Switch to PrivateChannel + auth before production.
+Broadcast::channel('patrol.{patrolUnitId}', fn () => true);

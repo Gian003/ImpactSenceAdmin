@@ -17,8 +17,9 @@ class PatrolDispatched implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
+        // Public channel scoped to this patrol unit's ID.
+        // Switch to PrivateChannel + auth endpoint before production.
         return [
-            // Private channel so only the assigned patrol unit receives it
             new Channel('patrol.' . $this->incident->patrol_unit_id),
         ];
     }
