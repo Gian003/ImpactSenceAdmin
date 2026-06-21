@@ -61,11 +61,11 @@
             <tbody>
                 @forelse($recentIncidents ?? [] as $incident)
                 <tr>
-                    <td>{{ $incident->full_name }}</td>
-                    <td>{{ $incident->location }}</td>
-                    <td>{{ $incident->contact_number }}</td>
-                    <td>{{ $incident->age }}</td>
-                    <td>{{ $incident->address }}</td>
+                    <td>{{ $incident->rider?->full_name ?? 'N/A' }}</td>
+                    <td>{{ $incident->address ?? 'N/A' }}</td>
+                    <td>{{ $incident->rider?->phone_number ?? 'N/A' }}</td>
+                    <td>{{ $incident->rider?->date_of_birth ? now()->diffInYears($incident->rider->date_of_birth) : 'N/A' }}</td>
+                    <td>{{ $incident->rider?->address ?? 'N/A' }}</td>
                     <td></td>
                 </tr>
                 @empty
@@ -97,10 +97,10 @@
             <tbody>
                 @forelse($recentRiders ?? [] as $rider)
                 <tr>
-                    <td>{{ $rider->device_model }}</td>
+                    <td>{{ $rider->helmet?->device_code ?? 'No device' }}</td>
                     <td>{{ $rider->full_name }}</td>
-                    <td>{{ $rider->age }}</td>
-                    <td>{{ $rider->contact_number }}</td>
+                    <td>{{ $rider->date_of_birth ? now()->diffInYears($rider->date_of_birth) : 'N/A' }}</td>
+                    <td>{{ $rider->phone_number ?? 'N/A' }}</td>
                     <td></td>
                 </tr>
                 @empty

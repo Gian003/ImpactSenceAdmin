@@ -1,20 +1,32 @@
-/* Sidebar — only rules Bootstrap cannot provide */
+/* Brand-specific rules Bootstrap cannot provide */
+
+body {
+    background: #f0f4f7;
+    font-family: 'Segoe UI', sans-serif;
+}
+
 .sidebar {
     width: 220px;
+    min-height: 100vh;
+    background: #1b3d52;
     flex-shrink: 0;
 }
 
 .sidebar .nav-link {
+    color: rgba(255, 255, 255, .75);
+    font-size: .9rem;
     border-radius: 0;
     transition: background .15s, color .15s;
 }
 
 .sidebar .nav-link:hover {
     background: rgba(255, 255, 255, .08);
+    color: #fff;
 }
 
 .sidebar .nav-link.active {
     background: #2a5c78;
+    color: #fff;
     font-weight: 600;
 }
 

@@ -63,47 +63,24 @@
             </thead>
             <tbody id="incidentsBody">
                 @forelse($incidents ?? [] as $incident)
-                <tr>
-                    <td>{{ $incident->full_name }}</td>
-                    <td>{{ $incident->location }}</td>
-                    <td><span class="incident-type">{{ $incident->type }}</span></td>
-                    <td><span class="incident-time">{{ $incident->time }}</span></td>
+                @php
+                    $uiStatus = in_array($incident->status, ['pending','dispatched']) ? 'Active' : 'Resolved';
+                @endphp
+                <tr data-status="{{ $uiStatus }}" data-date="{{ $incident->created_at->format('F') }}"
+                    onclick="window.location='{{ route('investigation.incident-report.show', $incident) }}'"
+                    style="cursor:pointer;">
+                    <td>{{ $incident->rider?->full_name ?? 'N/A' }}</td>
+                    <td>{{ $incident->address ?? 'N/A' }}</td>
+                    <td><span class="incident-type">{{ strtoupper($incident->type) }}</span></td>
+                    <td><span class="incident-time">{{ $incident->created_at->format('F d, h:i A') }}</span></td>
                     <td>
-                        <span class="status-badge {{ $incident->status === 'Active' ? 'status-active' : 'status-resolved' }}">
-                            {{ $incident->status }}
+                        <span class="status-badge {{ $uiStatus === 'Active' ? 'status-active' : 'status-resolved' }}">
+                            {{ $uiStatus }}
                         </span>
                     </td>
                 </tr>
                 @empty
-                @php
-                $rows = [
-                    ['Rester Mendoza',    'Brgy. Cabuloan,<br>Urdaneta City, Pangasinan',    'HEAD ON COLLISION',        'April 20, 10:30 AM', 'Active'],
-                    ['Darnil Castanieto', 'Brgy. Pinmaludpod,<br>Urdaneta City, Pangasinan', 'HEAD ON COLLISION',        'April 14, 11:30 PM', 'Resolved'],
-                    ['Gian Rodriguez',    'Urdaneta Bypass Road',                             'DOORING ACCIDENT',         'April 22, 12:30 AM', 'Active'],
-                    ['Adrian Sarmiento', 'Brgy. Cabuloan,<br>Urdaneta City, Pangasinan',    'LANE SWITCHING ACCIDENT',  'April 23, 9:30 PM',  'Active'],
-                    ['Danilo Lingo',      'Brgy. Pinmaludpod,<br>Urdaneta City, Pangasinan', 'LOSS OF CONTROL',          'March 23, 10:30 AM', 'Resolved'],
-                    ['Axel Oxiles',       'Urdaneta Bypass Road',                             'ROAD DEPARTURE',           'April 20, 2:45 AM',  'Active'],
-                    ['John Paul Nitura',  'Brgy. Cabuloan,<br>Urdaneta City, Pangasinan',    'GROUP RIDING COLLISIONS',  'April 16, 10:30 AM', 'Active'],
-                    ['Kurt Cruz',         'Brgy. Pinmaludpod,<br>Urdaneta City, Pangasinan', 'ROAD DEPARTURE',           'March 02, 4:30 PM',  'Resolved'],
-                    ['Clark Ramirez',     'Urdaneta Bypass Road',                             'ROAD DEPARTURE',           'April 06, 6:34 AM',  'Active'],
-                    ['Carlo Dizon',       'Brgy. Cabuloan,<br>Urdaneta City, Pangasinan',    'LANE SWITCHING ACCIDENT',  'April 20, 10:30 AM', 'Active'],
-                    ['Carl Villanueva',   'Brgy. Pinmaludpod,<br>Urdaneta City, Pangasinan', 'LOSS OF CONTROL',          'April 01, 8:30 PM',  'Resolved'],
-                    ['Mark Miranda',      'Urdaneta Bypass Road',                             'LOSS OF CONTROL',          'April 24, 7:31 AM',  'Active'],
-                ];
-                @endphp
-                @foreach($rows as $r)
-                <tr data-status="{{ $r[4] }}" data-date="{{ explode(' ', $r[3])[0] }}">
-                    <td>{{ $r[0] }}</td>
-                    <td>{!! $r[1] !!}</td>
-                    <td><span class="incident-type">{{ $r[2] }}</span></td>
-                    <td><span class="incident-time">{{ $r[3] }}</span></td>
-                    <td>
-                        <span class="status-badge {{ $r[4] === 'Active' ? 'status-active' : 'status-resolved' }}">
-                            {{ $r[4] }}
-                        </span>
-                    </td>
-                </tr>
-                @endforeach
+                <tr><td colspan="5" class="text-center text-muted py-4" style="font-size:.83rem;">No incidents recorded yet.</td></tr>
                 @endforelse
             </tbody>
         </table>

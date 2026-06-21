@@ -129,6 +129,48 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+@if(config('broadcasting.connections.pusher.key'))
+{{-- Pusher real-time listener — only loads when PUSHER_APP_KEY is configured --}}
+<script src="https://js.pusher.com/8.4/pusher.min.js"></script>
+<script>
+(function () {
+    const key     = @json(config('broadcasting.connections.pusher.key'));
+    const cluster = @json(config('broadcasting.connections.pusher.options.cluster'));
+    if (!key) return;
+
+    const pusher  = new Pusher(key, { cluster });
+    const channel = pusher.subscribe('incidents');
+
+    // New incident arrives — add a row to the Recent Incidents table
+    channel.bind('incident.reported', function (data) {
+        const tbody = document.getElementById('incidents-tbody');
+        if (!tbody) return;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${data.rider?.full_name ?? 'N/A'}</td>
+            <td>${data.address ?? 'N/A'}</td>
+            <td>${data.rider?.phone_number ?? 'N/A'}</td>
+            <td>N/A</td>
+            <td>N/A</td>
+            <td></td>`;
+        tbody.prepend(tr);
+
+        // Flash the bell notification
+        const bell = document.getElementById('bellBtn');
+        if (bell) bell.classList.add('text-warning');
+    });
+
+    // Status changed — update the badge if visible
+    channel.bind('incident.status_updated', function (data) {
+        const badge = document.querySelector(`[data-incident-id="${data.id}"] .status-badge`);
+        if (badge) badge.textContent = data.status;
+    });
+})();
+</script>
+@endif
+
 @stack('scripts')
 </body>
 </html>

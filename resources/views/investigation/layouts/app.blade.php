@@ -17,10 +17,10 @@
     <aside class="sidebar d-flex flex-column">
 
         <div class="d-flex align-items-center gap-2 p-3 border-bottom border-white border-opacity-10">
-            <img src="{{ asset('images/pnp-investigation.png') }}" alt="PNP Logo" width="44" height="44"
+            <img src="{{ asset('images/pnp-urdaneta.png') }}" alt="PNP Urdaneta Logo" width="44" height="44"
                  style="object-fit:contain;" onerror="this.style.display='none'">
             <div class="text-white fw-bold lh-sm" style="font-size:.85rem; letter-spacing:.03em;">
-                PNP<br>INVESTIGATION
+                PNP<br>URDANETA
             </div>
         </div>
 

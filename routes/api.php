@@ -8,6 +8,9 @@ use App\Http\Controllers\Api\PatrolAuthController;
 use App\Http\Controllers\Api\RiderAuthController;
 use Illuminate\Support\Facades\Route;
 
+// ── HEALTH CHECK ──────────────────────────────────────────────────────────────
+Route::get('health', fn () => response()->json(['status' => 'up']));
+
 // ── IOT DEVICE ────────────────────────────────────────────────────────────────
 // No Sanctum token — authenticated by device_code only
 Route::prefix('device')->group(function () {
@@ -26,8 +29,9 @@ Route::prefix('rider')->group(function () {
 
     // Authenticated
     Route::middleware('auth:sanctum')->group(function () {
-        Route::post('logout',  [RiderAuthController::class, 'logout']);
-        Route::get('profile',  [RiderAuthController::class, 'profile']);
+        Route::post('logout',    [RiderAuthController::class, 'logout']);
+        Route::get('profile',    [RiderAuthController::class, 'profile']);
+        Route::post('fcm-token', [RiderAuthController::class, 'updateFcmToken']);
 
         // Helmet pairing
         Route::get('helmet',         [HelmetController::class, 'show']);
@@ -55,6 +59,7 @@ Route::prefix('patrol')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout',          [PatrolAuthController::class, 'logout']);
         Route::post('update-location', [PatrolAuthController::class, 'updateLocation']);
+        Route::post('fcm-token',       [PatrolAuthController::class, 'updateFcmToken']);
 
         // Incidents
         Route::get('incidents',                          [IncidentController::class, 'patrolIndex']);
