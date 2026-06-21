@@ -7,18 +7,20 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable
+class PatrolUnit extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
         'full_name',
+        'badge_number',
         'email',
         'password',
-        'phone_number',
-        'address',
-        'profile_photo',
-        'date_of_birth',
+        'rank',
+        'mobile_number',
+        'current_latitude',
+        'current_longitude',
+        'status',
         'fcm_token',
     ];
 
@@ -30,7 +32,8 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'date_of_birth' => 'date',
+            'current_latitude' => 'decimal:7',
+            'current_longitude' => 'decimal:7',
             'password' => 'hashed',
         ];
     }

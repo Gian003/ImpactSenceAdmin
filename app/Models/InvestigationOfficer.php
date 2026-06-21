@@ -5,21 +5,18 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable
+class InvestigationOfficer extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasFactory, Notifiable;
 
     protected $fillable = [
         'full_name',
+        'badge_number',
         'email',
         'password',
-        'phone_number',
-        'address',
-        'profile_photo',
-        'date_of_birth',
-        'fcm_token',
+        'rank',
+        'unit_assignment',
     ];
 
     protected $hidden = [
@@ -30,7 +27,6 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'date_of_birth' => 'date',
             'password' => 'hashed',
         ];
     }
