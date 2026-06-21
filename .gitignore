@@ -17,7 +17,8 @@
 /public/hot
 /public/storage
 /storage/*.key
-/storage/firebase-service-account.json
+/storage/*firebase*.json
+/storage/*adminsdk*.json
 /storage/pail
 /vendor
 Homestead.json
