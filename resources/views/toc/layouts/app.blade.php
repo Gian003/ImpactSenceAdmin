@@ -71,6 +71,31 @@
                 </svg>
                 Patrollers Unit
             </a>
+
+            <a href="{{ route('toc.patrol-registrations.index') }}"
+               class="nav-link {{ request()->routeIs('toc.patrol-registrations*') ? 'active' : '' }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     viewBox="0 0 24 24">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <line x1="19" y1="8" x2="19" y2="14"/>
+                    <line x1="22" y1="11" x2="16" y2="11"/>
+                </svg>
+                Patrol Registrations
+                @php $pendingCount = \App\Models\PatrolRegistration::where('status','pending')->count(); @endphp
+                @if($pendingCount)
+                <span id="reg-badge"
+                      class="badge rounded-pill ms-auto"
+                      style="background:#e53e3e; font-size:.65rem; padding:.2rem .5rem;">
+                    {{ $pendingCount }}
+                </span>
+                @else
+                <span id="reg-badge" style="display:none;"
+                      class="badge rounded-pill ms-auto"
+                      style="background:#e53e3e; font-size:.65rem; padding:.2rem .5rem;">0</span>
+                @endif
+            </a>
         </nav>
 
         <div class="d-flex align-items-center gap-2 p-3 border-top border-white border-opacity-10">

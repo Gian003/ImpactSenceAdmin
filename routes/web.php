@@ -107,6 +107,92 @@ Route::prefix('toc')
             ]);
         })->name('helmet.index');
 
+        // ── Patrol registrations ──────────────────────────────────────────────
+        Route::get('/patrol-registrations', function () {
+            return view('toc.patrol-registrations.index', [
+                'pending'  => \App\Models\PatrolRegistration::where('status', 'pending')->latest()->get(),
+                'reviewed' => \App\Models\PatrolRegistration::whereIn('status', ['approved','rejected'])
+                                  ->with('reviewer')->latest()->limit(20)->get(),
+            ]);
+        })->name('patrol-registrations.index');
+
+        Route::post('/patrol-registrations/{registration}/approve', function (
+            Request $request, \App\Models\PatrolRegistration $registration
+        ) {
+            $data = $request->validate([
+                'badge_number' => ['required', 'string', 'unique:patrol_units,badge_number'],
+                'rank'         => ['required', 'string'],
+            ]);
+
+            if ($registration->status !== 'pending') {
+                return back()->withErrors(['error' => 'Registration already reviewed.']);
+            }
+
+            // Create the patrol unit account
+            $patrol = \App\Models\PatrolUnit::create([
+                'full_name'    => $registration->first_name . ' ' . $registration->last_name,
+                'badge_number' => $data['badge_number'],
+                'email'        => $registration->email,
+                'password'     => $registration->password, // already hashed
+                'rank'         => $data['rank'],
+                'mobile_number'=> $registration->phone_number,
+                'fcm_token'    => $registration->fcm_token,
+                'status'       => 'off_duty',
+            ]);
+
+            // Mark registration approved
+            $registration->update([
+                'status'      => 'approved',
+                'badge_number'=> $data['badge_number'],
+                'rank'        => $data['rank'],
+                'reviewed_by' => Auth::guard('toc')->id(),
+                'reviewed_at' => now(),
+            ]);
+
+            // FCM push to the patrol officer's phone
+            if ($registration->fcm_token) {
+                app(\App\Services\FcmService::class)->sendToToken(
+                    $registration->fcm_token,
+                    'Registration Approved',
+                    'Your patrol account has been approved. You can now log in.',
+                    ['type' => 'registration_approved', 'badge_number' => $data['badge_number']]
+                );
+            }
+
+            return back()->with('success', "Account created for {$patrol->full_name} ({$patrol->badge_number}).");
+        })->name('patrol-registrations.approve');
+
+        Route::post('/patrol-registrations/{registration}/reject', function (
+            Request $request, \App\Models\PatrolRegistration $registration
+        ) {
+            $data = $request->validate([
+                'rejection_reason' => ['required', 'string', 'max:500'],
+            ]);
+
+            if ($registration->status !== 'pending') {
+                return back()->withErrors(['error' => 'Registration already reviewed.']);
+            }
+
+            $registration->update([
+                'status'           => 'rejected',
+                'rejection_reason' => $data['rejection_reason'],
+                'reviewed_by'      => Auth::guard('toc')->id(),
+                'reviewed_at'      => now(),
+            ]);
+
+            // FCM push to the patrol officer
+            if ($registration->fcm_token) {
+                app(\App\Services\FcmService::class)->sendToToken(
+                    $registration->fcm_token,
+                    'Registration Not Approved',
+                    'Reason: ' . $data['rejection_reason'],
+                    ['type' => 'registration_rejected']
+                );
+            }
+
+            return back()->with('success', "Registration for {$registration->full_name} rejected.");
+        })->name('patrol-registrations.reject');
+
         Route::get('/patrollers', function () {
             return view('toc.patrollers.index', [
                 'patrollers' => PatrolUnit::all(),

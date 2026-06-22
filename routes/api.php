@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\DeviceController;
+use App\Http\Controllers\Api\PatrolRegistrationController;
 use App\Http\Controllers\Api\EmergencyContactController;
 use App\Http\Controllers\Api\HelmetController;
 use App\Http\Controllers\Api\IncidentController;
@@ -53,7 +54,9 @@ Route::prefix('rider')->group(function () {
 Route::prefix('patrol')->group(function () {
 
     // Public
-    Route::post('login', [PatrolAuthController::class, 'login']);
+    Route::post('login',           [PatrolAuthController::class, 'login']);
+    Route::post('register-request',[PatrolRegistrationController::class, 'store']);
+    Route::post('registration-status', [PatrolRegistrationController::class, 'status']);
 
     // Authenticated
     Route::middleware('auth:sanctum')->group(function () {
