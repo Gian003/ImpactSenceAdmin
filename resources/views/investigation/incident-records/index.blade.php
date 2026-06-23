@@ -23,7 +23,7 @@
             <h2>Philippine National Police</h2>
             <h1>INCIDENT RECORD FORM</h1>
         </div>
-        <img src="{{ asset('images/pnp.png') }}" alt="PNP" onerror="this.style.display='none'">
+        <img src="{{ asset('images/pnp-investigation.png') }}" alt="PNP Investigation" onerror="this.style.display='none'">
     </div>
 
     <table class="irf-table">

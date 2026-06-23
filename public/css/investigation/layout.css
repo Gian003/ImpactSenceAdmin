@@ -1,10 +1,11 @@
-/* Brand-specific rules Bootstrap cannot provide */
+/* Brand-specific sidebar rules */
 
 body {
     background: #f0f4f7;
     font-family: 'Segoe UI', sans-serif;
 }
 
+/* Sidebar wrapper — dark teal covers header and footer */
 .sidebar {
     width: 220px;
     min-height: 100vh;
@@ -12,25 +13,37 @@ body {
     flex-shrink: 0;
 }
 
+/* Nav body — lighter steel-blue "sandwich" middle */
+.sidebar nav {
+    background: #7ba4b8;
+}
+
+/* Inactive nav links — dark navy text on light background */
 .sidebar .nav-link {
-    color: rgba(255, 255, 255, .75);
-    font-size: .9rem;
+    color: #1b3d52;
+    font-size: .88rem;
+    font-weight: 500;
+    padding: .65rem 1.1rem;
     border-radius: 0;
     transition: background .15s, color .15s;
 }
 
 .sidebar .nav-link:hover {
-    background: rgba(255, 255, 255, .08);
-    color: #fff;
+    background: rgba(0, 0, 0, .1);
+    color: #1b3d52;
 }
 
+/* Active nav link — dark teal pill, indented from edges */
 .sidebar .nav-link.active {
-    background: #2a5c78;
+    background: #1b3d52;
     color: #fff;
     font-weight: 600;
+    border-radius: 10px;
+    margin: 3px 10px;
+    padding: .6rem 1rem;
 }
 
+/* Icons follow the text color automatically (currentColor) */
 .sidebar .nav-link svg {
     flex-shrink: 0;
-    opacity: .85;
 }

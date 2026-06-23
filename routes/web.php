@@ -14,6 +14,99 @@ Route::get('/', fn () => view('welcome'));
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 Route::get('/login', fn () => view('auth.login'))->name('login');
 
+// ── FORGOT / RESET PASSWORD ────────────────────────────────────────────────────
+Route::get('/forgot-password', fn () => view('auth.forgot-password'))
+    ->name('password.request');
+
+Route::post('/forgot-password', function (Request $request) {
+    $request->validate(['email' => ['required', 'email']]);
+
+    $email = $request->email;
+
+    // Find the officer in either table
+    $user  = \App\Models\TocPersonnel::where('email', $email)->first()
+          ?? \App\Models\InvestigationOfficer::where('email', $email)->first();
+
+    // Always show success — never reveal whether the email exists
+    if ($user) {
+        $token = \Illuminate\Support\Str::random(64);
+
+        \Illuminate\Support\Facades\DB::table('password_reset_tokens')
+            ->upsert(
+                ['email' => $email, 'token' => \Illuminate\Support\Facades\Hash::make($token), 'created_at' => now()],
+                ['email'],
+                ['token', 'created_at']
+            );
+
+        $resetUrl = url('/reset-password/' . $token . '?email=' . urlencode($email));
+
+        \Illuminate\Support\Facades\Mail::send([], [], function ($message) use ($email, $resetUrl, $user) {
+            $message->to($email)
+                ->subject('ImpactSense — Reset Your Password')
+                ->html('
+                    <p>Hello <strong>' . e($user->full_name) . '</strong>,</p>
+                    <p>You requested a password reset for your ImpactSense admin account.</p>
+                    <p>Click the button below to set a new password. This link expires in <strong>60 minutes</strong>.</p>
+                    <p style="margin:24px 0;">
+                        <a href="' . $resetUrl . '"
+                           style="background:#1b3d52; color:#fff; padding:12px 28px;
+                                  text-decoration:none; border-radius:6px; font-weight:bold;">
+                            Reset Password
+                        </a>
+                    </p>
+                    <p style="color:#666; font-size:12px;">
+                        If you did not request this, no action is needed.<br>
+                        Direct link: ' . $resetUrl . '
+                    </p>
+                ');
+        });
+    }
+
+    return back()->with('status', 'If that email exists in our system, a reset link has been sent.');
+})->name('password.email');
+
+Route::get('/reset-password/{token}', function ($token) {
+    return view('auth.reset-password', ['token' => $token]);
+})->name('password.reset');
+
+Route::post('/reset-password', function (Request $request) {
+    $request->validate([
+        'token'                 => ['required'],
+        'email'                 => ['required', 'email'],
+        'password'              => ['required', 'min:8', 'confirmed'],
+        'password_confirmation' => ['required'],
+    ]);
+
+    $record = \Illuminate\Support\Facades\DB::table('password_reset_tokens')
+        ->where('email', $request->email)
+        ->first();
+
+    // Validate token and expiry (60 minutes)
+    if (! $record
+        || ! \Illuminate\Support\Facades\Hash::check($request->token, $record->token)
+        || now()->diffInMinutes($record->created_at) > 60
+    ) {
+        return back()->withErrors(['email' => 'The reset link is invalid or has expired.']);
+    }
+
+    // Update password in the correct table
+    $updated = \App\Models\TocPersonnel::where('email', $request->email)
+                   ->update(['password' => \Illuminate\Support\Facades\Hash::make($request->password)]);
+
+    if (! $updated) {
+        \App\Models\InvestigationOfficer::where('email', $request->email)
+            ->update(['password' => \Illuminate\Support\Facades\Hash::make($request->password)]);
+    }
+
+    // Delete used token
+    \Illuminate\Support\Facades\DB::table('password_reset_tokens')
+        ->where('email', $request->email)
+        ->delete();
+
+    return redirect()->route('login')
+        ->with('status', 'Password reset successfully. You can now log in.');
+})->name('password.update');
+
 Route::post('/login', function (Request $request) {
     $credentials = $request->validate([
         'email'    => ['required', 'email'],
@@ -88,8 +181,12 @@ Route::prefix('toc')
 
             $incident->load(['rider', 'patrolUnit']);
 
-            broadcast(new \App\Events\PatrolDispatched($incident));
-            broadcast(new \App\Events\IncidentStatusUpdated($incident));
+            try {
+                broadcast(new \App\Events\PatrolDispatched($incident));
+                broadcast(new \App\Events\IncidentStatusUpdated($incident));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Pusher broadcast failed (dispatch)', ['error' => $e->getMessage()]);
+            }
 
             app(\App\Services\FcmService::class)->notifyPatrol(
                 $patrol,

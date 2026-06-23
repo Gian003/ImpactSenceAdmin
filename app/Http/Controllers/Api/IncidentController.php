@@ -10,6 +10,7 @@ use App\Models\Incident;
 use App\Services\FcmService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
 class IncidentController extends Controller
@@ -37,10 +38,14 @@ class IncidentController extends Controller
 
         $incident->load(['rider', 'helmet']);
 
-        // Broadcast to TOC dashboard via Pusher
-        broadcast(new IncidentReported($incident))->toOthers();
+        // Broadcast to TOC dashboard — non-fatal if Pusher is not configured
+        try {
+            broadcast(new IncidentReported($incident))->toOthers();
+        } catch (\Throwable $e) {
+            Log::warning('Pusher broadcast failed (IncidentReported)', ['error' => $e->getMessage()]);
+        }
 
-        // FCM push to rider — confirm the report was received
+        // FCM push to rider — non-fatal if Firebase is not configured
         $fcm->notifyRider(
             $rider,
             'Crash Reported',
@@ -105,9 +110,13 @@ class IncidentController extends Controller
         $incident->update($updates);
         $incident->load(['rider', 'patrolUnit']);
 
-        // Broadcast dispatch event to the assigned patrol unit via Pusher
+        // Broadcast dispatch event to the assigned patrol unit — non-fatal if Pusher not configured
         if ($data['status'] === 'dispatched') {
-            broadcast(new PatrolDispatched($incident));
+            try {
+                broadcast(new PatrolDispatched($incident));
+            } catch (\Throwable $e) {
+                Log::warning('Pusher broadcast failed (PatrolDispatched)', ['error' => $e->getMessage()]);
+            }
 
             // FCM push to patrol app
             if ($incident->patrolUnit) {
@@ -130,8 +139,12 @@ class IncidentController extends Controller
             );
         }
 
-        // Always broadcast status change back to TOC dashboard
-        broadcast(new IncidentStatusUpdated($incident));
+        // Always broadcast status change back to TOC dashboard — non-fatal
+        try {
+            broadcast(new IncidentStatusUpdated($incident));
+        } catch (\Throwable $e) {
+            Log::warning('Pusher broadcast failed (IncidentStatusUpdated)', ['error' => $e->getMessage()]);
+        }
 
         return $this->apiResponse(true, 'Status updated', $incident->fresh());
     }

@@ -41,6 +41,13 @@
                 </div>
                 <p class="mb-4" style="font-size:.88rem; color:#4a7a96;">Sign in your account</p>
 
+                @if(session('status'))
+                <div class="alert py-2 mb-3 text-center"
+                     style="background:#e8f5e9; border:1px solid #a5d6a7; color:#2e7d32; font-size:.85rem;">
+                    {{ session('status') }}
+                </div>
+                @endif
+
                 @if ($errors->any())
                     <div class="alert alert-danger py-2 mb-3" style="font-size:.85rem;">
                         {{ $errors->first() }}
@@ -98,7 +105,7 @@
                                 Keep me Logged in
                             </label>
                         </div>
-                        <a href="#" style="font-size:.85rem; color:#2c5f7a;" class="text-decoration-none">
+                        <a href="{{ route('password.request') }}" style="font-size:.85rem; color:#2c5f7a;" class="text-decoration-none">
                             Forgot Password?
                         </a>
                     </div>

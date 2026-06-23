@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Events\IncidentReported;
 use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Log;
 use App\Models\Helmet;
 use App\Models\Incident;
 use App\Services\FcmService;
@@ -53,8 +54,12 @@ class DeviceController extends Controller
 
         $incident->load(['rider', 'helmet']);
 
-        // Broadcast new incident to TOC dashboard
-        broadcast(new IncidentReported($incident));
+        // Broadcast new incident to TOC dashboard — non-fatal if Pusher not configured
+        try {
+            broadcast(new IncidentReported($incident));
+        } catch (\Throwable $e) {
+            Log::warning('Pusher broadcast failed (IncidentReported/Device)', ['error' => $e->getMessage()]);
+        }
 
         // FCM push to rider's phone — confirm the crash was detected
         if ($helmet->rider) {
