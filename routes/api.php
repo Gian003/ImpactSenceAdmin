@@ -16,6 +16,7 @@ Route::get('health', fn () => response()->json(['status' => 'up']));
 // No Sanctum token — authenticated by device_code only
 Route::prefix('device')->group(function () {
     Route::post('incident', [DeviceController::class, 'reportIncident']);
+    Route::get('emergency-contact', [DeviceController::class, 'getEmergencyContact']);
 });
 
 // ── RIDER ─────────────────────────────────────────────────────────────────────
@@ -35,8 +36,14 @@ Route::prefix('rider')->group(function () {
         Route::post('fcm-token', [RiderAuthController::class, 'updateFcmToken']);
 
         // Helmet pairing
-        Route::get('helmet',         [HelmetController::class, 'show']);
-        Route::post('helmet/pair',   [HelmetController::class, 'pair']);
+        Route::get('helmet', [HelmetController::class, 'show']);
+
+        // Rate-limited: pairing_key is the real secret gating this, but a slow
+        // brute-force is still worth blocking outright rather than relying on
+        // key entropy alone.
+        Route::post('helmet/pair', [HelmetController::class, 'pair'])
+            ->middleware('throttle:5,1');
+
         Route::delete('helmet/pair', [HelmetController::class, 'unpair']);
 
         // Incidents

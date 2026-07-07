@@ -21,17 +21,25 @@ class HelmetController extends Controller
         return $this->apiResponse(true, 'Helmet retrieved', $helmet);
     }
 
-    // Rider: pair a helmet by device code
+    // Rider: pair a helmet by device code + its secret pairing key.
+    // device_code is public (like a serial number) - pairing_key is the actual
+    // secret that must match, so someone guessing/enumerating device codes
+    // can't hijack a device they don't physically possess.
     public function pair(Request $request): JsonResponse
     {
         $request->validate([
             'device_code' => ['required', 'string'],
+            'pairing_key' => ['required', 'string'],
         ]);
 
         $helmet = Helmet::where('device_code', $request->device_code)->first();
 
         if (! $helmet) {
             return $this->apiResponse(false, 'Device not found', null, 404);
+        }
+
+        if (strtoupper($request->pairing_key) !== strtoupper($helmet->pairing_key)) {
+            return $this->apiResponse(false, 'Invalid pairing key', null, 422);
         }
 
         if ($helmet->rider_id !== null && $helmet->rider_id !== $request->user()->id) {

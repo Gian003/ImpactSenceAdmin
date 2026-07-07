@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Helmet extends Model
 {
@@ -20,6 +21,19 @@ class Helmet extends Model
         'is_active',
         'paired_at',
     ];
+
+    // pairing_key is deliberately NOT fillable - it must only ever be set by
+    // this auto-generation, never by mass assignment from a request.
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function (Helmet $helmet) {
+            if (empty($helmet->pairing_key)) {
+                $helmet->pairing_key = strtoupper(Str::random(8));
+            }
+        });
+    }
 
     protected function casts(): array
     {

@@ -196,8 +196,16 @@ function initMap() {
         return marker;
     }
 
-    addMarker(15.963, 120.553, 'Rester Mendoza',    'Brgy. Pinmaludpod, Urdaneta City');
-    addMarker(15.981, 120.582, 'Darnil Castanieto', 'Brgy. Cabuloan, Urdaneta City');
+    // Plot real pending/dispatched incidents from the database
+    const incidents = @json($pendingIncidents ?? []);
+    incidents.forEach(inc => {
+        const lat = parseFloat(inc.latitude);
+        const lng = parseFloat(inc.longitude);
+        if (isNaN(lat) || isNaN(lng)) return;
+        const name = inc.rider ? inc.rider.full_name : 'Unknown rider';
+        const address = inc.address || 'Location unavailable';
+        addMarker(lat, lng, name, address);
+    });
 
     // Accident-prone area polygons (shown when "Accident Prone Area" is toggled)
     const pronePolygons = [
