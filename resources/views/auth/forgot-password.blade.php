@@ -13,7 +13,7 @@
 
         {{-- Logo + title --}}
         <div class="text-center mb-4">
-            <img src="{{ asset('images/pnp-urdaneta.png') }}" alt="PNP Urdaneta"
+            <img src="{{ asset('images/pnp_urdaneta_logo.png') }}" alt="PNP Urdaneta"
                  width="80" height="80" style="object-fit:contain;" class="mb-3">
             <h1 class="fw-bold mb-1" style="font-size:1.25rem; color:#1a3a4f;">Forgot Password</h1>
             <p class="mb-0" style="font-size:.85rem; color:#4a7a96;">

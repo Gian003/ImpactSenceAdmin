@@ -7,10 +7,20 @@ use App\Http\Controllers\Api\HelmetController;
 use App\Http\Controllers\Api\IncidentController;
 use App\Http\Controllers\Api\PatrolAuthController;
 use App\Http\Controllers\Api\RiderAuthController;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 // ── HEALTH CHECK ──────────────────────────────────────────────────────────────
 Route::get('health', fn () => response()->json(['status' => 'up']));
+
+// ── BROADCASTING AUTH (mobile apps, Sanctum bearer token) ────────────────────
+// Registers POST /api/broadcasting/auth (this file is already loaded under
+// the /api prefix) for private-channel subscriptions (e.g. patrol.{id}) from
+// the Flutter apps, which authenticate via bearer token rather than the
+// session cookie the default /broadcasting/auth route expects.
+Broadcast::routes([
+    'middleware' => ['auth:sanctum'],
+]);
 
 // ── IOT DEVICE ────────────────────────────────────────────────────────────────
 // No Sanctum token — authenticated by device_code only

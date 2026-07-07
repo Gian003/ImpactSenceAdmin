@@ -15,7 +15,7 @@
         @if (Route::has('login'))
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div class="d-flex align-items-center gap-2">
-                <img src="{{ asset('images/pnp-logo.png') }}" width="32" height="32"
+                <img src="{{ asset('images/pnp_logo.png') }}" width="32" height="32"
                      style="object-fit:contain;" alt="PNP" onerror="this.style.display='none'">
                 <span class="fw-bold" style="color:#1a3a4f; font-size:.85rem; letter-spacing:.05em;">
                     IMPACTSENSE
@@ -39,7 +39,7 @@
 
             {{-- Left: Branding --}}
             <div class="col-md-5 text-center text-md-start">
-                <img src="{{ asset('images/pnp-logo.png') }}" alt="PNP Urdaneta"
+                <img src="{{ asset('images/pnp_logo.png') }}" alt="PNP Urdaneta"
                      width="130" height="130" style="object-fit:contain;"
                      class="mb-3" onerror="this.style.display='none'">
                 <div class="brand-title mb-2">IMPACTSENSE</div>

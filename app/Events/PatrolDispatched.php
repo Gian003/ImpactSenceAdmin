@@ -3,8 +3,8 @@
 namespace App\Events;
 
 use App\Models\Incident;
-use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
@@ -17,10 +17,10 @@ class PatrolDispatched implements ShouldBroadcast
 
     public function broadcastOn(): array
     {
-        // Public channel scoped to this patrol unit's ID.
-        // Switch to PrivateChannel + auth endpoint before production.
+        // Private channel scoped to this patrol unit's ID — see the
+        // authorization callback in routes/channels.php.
         return [
-            new Channel('patrol.' . $this->incident->patrol_unit_id),
+            new PrivateChannel('patrol.' . $this->incident->patrol_unit_id),
         ];
     }
 

@@ -20,15 +20,13 @@
             <tbody>
                 @forelse($riders ?? [] as $rider)
                 <tr>
-                    <td>{{ $rider->device_model }}</td>
+                    <td>{{ $rider->helmet?->device_code ?? 'No device' }}</td>
                     <td>{{ $rider->full_name }}</td>
-                    <td>{{ $rider->age }}</td>
-                    <td>{{ $rider->contact_number }}</td>
+                    <td>{{ $rider->date_of_birth ? now()->diffInYears($rider->date_of_birth) : 'N/A' }}</td>
+                    <td>{{ $rider->phone_number ?? 'N/A' }}</td>
                 </tr>
                 @empty
-                <tr><td>ITK-BLK4-GRP5-MDL1</td><td>Rester Mendoza</td><td>20</td><td>09123645871</td></tr>
-                <tr><td>ITK-BLK4-GRP5-MDL2</td><td>Darnil Castanieto</td><td>20</td><td>09663322558</td></tr>
-                <tr><td>ITK-BLK4-GRP5-MDL3</td><td>Gian Rodriguez</td><td>20</td><td>09875461235</td></tr>
+                <tr><td colspan="4" class="text-center text-muted py-3">No registered riders yet.</td></tr>
                 @endforelse
             </tbody>
         </table>

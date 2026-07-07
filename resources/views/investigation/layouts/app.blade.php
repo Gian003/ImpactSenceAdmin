@@ -17,7 +17,7 @@
     <aside class="sidebar d-flex flex-column">
 
         <div class="d-flex align-items-center gap-2 px-3 py-3 border-bottom border-white border-opacity-10">
-            <img src="{{ asset('images/pnp-urdaneta.png') }}" alt="PNP Urdaneta"
+            <img src="{{ asset('images/pnp_urdaneta_logo.png') }}" alt="PNP Urdaneta"
                  width="50" height="50" style="object-fit:contain; flex-shrink:0;">
             <div class="text-white fw-bold lh-sm" style="font-size:.88rem; letter-spacing:.05em;">
                 PNP<br>URDANETA
@@ -96,7 +96,7 @@
 
             {{-- User info row --}}
             <div class="d-flex align-items-center gap-2 mb-2">
-                <img src="{{ asset('images/pnp-investigation.png') }}" alt="PNP Investigation"
+                <img src="{{ asset('images/investigation_logo.png') }}" alt="PNP Investigation"
                      width="38" height="38"
                      style="object-fit:contain; flex-shrink:0; border-radius:50%;">
                 <div class="text-white lh-sm" style="font-size:.78rem; overflow:hidden;">

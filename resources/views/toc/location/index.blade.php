@@ -6,7 +6,7 @@
     @foreach($patrollers ?? [] as $p)
         @if($p->status === 'dispatched')
         <li><span class="dropdown-item" style="font-size:.82rem;">{{ $p->full_name }} is on the way</span></li>
-        @elseif($p->status === 'available')
+        @elseif($p->status === 'off_duty')
         <li><span class="dropdown-item" style="font-size:.82rem;">{{ $p->full_name }} is available</span></li>
         @endif
     @endforeach
@@ -114,33 +114,42 @@
         </button>
     </div>
 
-    {{-- Speed Reports panel --}}
+    {{-- Speed Reports panel — real GPS speed samples from paired helmets,
+         grouped into ~111m areas (no street/barangay names: that would need
+         reverse geocoding, which isn't wired up yet). --}}
     <div class="map-panel" id="speedPanel">
         <div class="panel-card" style="min-width:380px;">
             <table>
-                <thead><tr><th>Street</th><th>Barangay</th><th>Recommended Speed</th></tr></thead>
+                <thead><tr><th>Area</th><th>Samples</th><th>Average Speed</th></tr></thead>
                 <tbody>
-                    <tr><td>Vladimir V. Lalas</td><td>Brgy. Cabuloan</td><td>50 kph</td></tr>
-                    <tr><td>Anabel T. Ganancial</td><td>Brgy. Pinmaludpod</td><td>66 kph</td></tr>
-                    <tr><td>Jesus D. Tambalo</td><td>Urdaneta Bypass Road</td><td>90 kph</td></tr>
+                    @forelse($speedReports ?? [] as $s)
+                    <tr>
+                        <td>{{ $s->lat_group }}°N, {{ $s->lng_group }}°E</td>
+                        <td>{{ $s->samples }}</td>
+                        <td>{{ $s->avg_speed }} kph</td>
+                    </tr>
+                    @empty
+                    <tr><td colspan="3" style="color:#9ca3af; font-size:.75rem;">No speed data reported yet.</td></tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>
     </div>
 
-    {{-- Patrollers panel --}}
+    {{-- Patrollers panel — rows are moved live between the two tables by
+         upsertPatrolRow() in the script below as status changes arrive. --}}
     <div class="patrollers-panel" id="patrollersPanel">
         <div class="panel-card">
             <table>
                 <thead><tr><th>STAND BY</th><th>LOCATION</th></tr></thead>
-                <tbody>
+                <tbody id="standByBody">
                     @forelse(($patrollers ?? collect())->where('status', 'off_duty') as $p)
-                    <tr>
+                    <tr data-patrol-id="{{ $p->id }}">
                         <td>{{ $p->full_name }}</td>
                         <td>{{ $p->current_latitude ? round($p->current_latitude,4).'°N, '.round($p->current_longitude,4).'°E' : '—' }}</td>
                     </tr>
                     @empty
-                    <tr><td colspan="2" style="color:#9ca3af; font-size:.75rem;">No stand-by units</td></tr>
+                    <tr class="empty-placeholder"><td colspan="2" style="color:#9ca3af; font-size:.75rem;">No stand-by units</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -148,14 +157,14 @@
         <div class="panel-card">
             <table>
                 <thead><tr><th>IN ACTION</th><th>LOCATION</th></tr></thead>
-                <tbody>
+                <tbody id="inActionBody">
                     @forelse(($patrollers ?? collect())->where('status', 'dispatched') as $p)
-                    <tr>
+                    <tr data-patrol-id="{{ $p->id }}">
                         <td>{{ $p->full_name }}</td>
                         <td>{{ $p->current_latitude ? round($p->current_latitude,4).'°N, '.round($p->current_longitude,4).'°E' : '—' }}</td>
                     </tr>
                     @empty
-                    <tr><td colspan="2" style="color:#9ca3af; font-size:.75rem;">No units in action</td></tr>
+                    <tr class="empty-placeholder"><td colspan="2" style="color:#9ca3af; font-size:.75rem;">No units in action</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -207,13 +216,107 @@ function initMap() {
         addMarker(lat, lng, name, address);
     });
 
-    // Accident-prone area polygons (shown when "Accident Prone Area" is toggled)
-    const pronePolygons = [
-        new google.maps.Polygon({ paths: [{lat:15.972,lng:120.545},{lat:15.970,lng:120.565},{lat:15.960,lng:120.560},{lat:15.962,lng:120.540}], strokeColor:'#e53e3e', strokeWeight:1, fillColor:'#e53e3e', fillOpacity:.35 }),
-        new google.maps.Polygon({ paths: [{lat:15.978,lng:120.572},{lat:15.976,lng:120.590},{lat:15.965,lng:120.588},{lat:15.967,lng:120.570}], strokeColor:'#e53e3e', strokeWeight:1, fillColor:'#e53e3e', fillOpacity:.35 }),
-        new google.maps.Polygon({ paths: [{lat:15.985,lng:120.553},{lat:15.983,lng:120.570},{lat:15.972,lng:120.568},{lat:15.974,lng:120.550}], strokeColor:'#dd6b20', strokeWeight:1, fillColor:'#dd6b20', fillOpacity:.30 }),
-        new google.maps.Polygon({ paths: [{lat:15.958,lng:120.570},{lat:15.956,lng:120.588},{lat:15.945,lng:120.585},{lat:15.947,lng:120.567}], strokeColor:'#d69e2e', strokeWeight:1, fillColor:'#d69e2e', fillOpacity:.28 }),
-    ];
+    // Patrol unit markers — seeded from the page-load snapshot, then kept
+    // live via the 'patrol-locations' Pusher channel as units report their
+    // GPS position every 30s (see PatrolAuthController::updateLocation).
+    const patrolIcons = {
+        dispatched: { url: 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png', scaledSize: new google.maps.Size(32, 32) },
+        off_duty:   { url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',   scaledSize: new google.maps.Size(32, 32) },
+    };
+    const patrolMarkers = {}; // keyed by patrol unit id
+
+    function upsertPatrolMarker(p) {
+        const lat = parseFloat(p.current_latitude);
+        const lng = parseFloat(p.current_longitude);
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        const icon = patrolIcons[p.status] ?? patrolIcons.off_duty;
+
+        if (patrolMarkers[p.id]) {
+            patrolMarkers[p.id].setPosition({ lat, lng });
+            patrolMarkers[p.id].setIcon(icon);
+        } else {
+            const marker = new google.maps.Marker({ position: { lat, lng }, map, icon, title: p.full_name });
+            marker.addListener('click', () => {
+                infoWindow.setContent(`<b>${p.full_name}</b><br>${p.badge_number ?? ''}<br>${p.status}`);
+                infoWindow.open(map, marker);
+            });
+            patrolMarkers[p.id] = marker;
+        }
+    }
+
+    // Stand By / In Action side tables — moves a patrol's row to whichever
+    // table matches their current status, so a dispatch or resolution moves
+    // the row live instead of waiting for a page refresh.
+    function refreshEmptyPlaceholder(tbody, emptyText) {
+        const hasRows = tbody.querySelector('tr[data-patrol-id]') !== null;
+        const placeholder = tbody.querySelector('tr.empty-placeholder');
+        if (hasRows && placeholder) placeholder.remove();
+        if (!hasRows && !placeholder) {
+            const tr = document.createElement('tr');
+            tr.className = 'empty-placeholder';
+            const td = document.createElement('td');
+            td.colSpan = 2;
+            td.style.cssText = 'color:#9ca3af; font-size:.75rem;';
+            td.textContent = emptyText;
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+        }
+    }
+
+    function upsertPatrolRow(p) {
+        const standByBody  = document.getElementById('standByBody');
+        const inActionBody = document.getElementById('inActionBody');
+        if (!standByBody || !inActionBody) return;
+
+        document.querySelectorAll(`tr[data-patrol-id="${p.id}"]`).forEach(tr => tr.remove());
+
+        const lat = parseFloat(p.current_latitude);
+        const lng = parseFloat(p.current_longitude);
+        const locationText = (!isNaN(lat) && !isNaN(lng)) ? `${lat.toFixed(4)}°N, ${lng.toFixed(4)}°E` : '—';
+
+        const tr = document.createElement('tr');
+        tr.dataset.patrolId = p.id;
+        const nameTd = document.createElement('td');
+        nameTd.textContent = p.full_name;
+        const locTd = document.createElement('td');
+        locTd.textContent = locationText;
+        tr.append(nameTd, locTd);
+
+        (p.status === 'dispatched' ? inActionBody : standByBody).appendChild(tr);
+
+        refreshEmptyPlaceholder(standByBody, 'No stand-by units');
+        refreshEmptyPlaceholder(inActionBody, 'No units in action');
+    }
+
+    function handlePatrolUpdate(p) {
+        upsertPatrolMarker(p);
+        upsertPatrolRow(p);
+    }
+
+    const patrollersData = @json($patrollers ?? []);
+    patrollersData.forEach(handlePatrolUpdate);
+
+    if (window.pusherClient) {
+        window.pusherClient.subscribe('patrol-locations')
+            .bind('patrol.location_updated', handlePatrolUpdate);
+    }
+
+    // Accident-prone heatmap, weighted by real historical incident coordinates
+    // (shown when "Accident Prone Area" is toggled)
+    const incidentCoords = @json($allIncidentCoords ?? []);
+    const heatmapPoints = incidentCoords
+        .map(i => {
+            const lat = parseFloat(i.latitude);
+            const lng = parseFloat(i.longitude);
+            return (isNaN(lat) || isNaN(lng)) ? null : new google.maps.LatLng(lat, lng);
+        })
+        .filter(Boolean);
+
+    const heatmap = new google.maps.visualization.HeatmapLayer({
+        data: heatmapPoints,
+        radius: 40,
+    });
 
     let activePanel = null;
 
@@ -228,7 +331,7 @@ function initMap() {
         Object.values(els).forEach(e => e.classList.remove('show'));
         Object.values(btns).forEach(b => b.classList.remove('active'));
         proneSub.classList.remove('show');
-        pronePolygons.forEach(p => p.setMap(null));
+        heatmap.setMap(null);
         activePanel = null;
 
         if (closing) return;
@@ -238,9 +341,9 @@ function initMap() {
         btns[panel].classList.add('active');
         if (panel === 'speed')       els.speed.classList.add('show');
         if (panel === 'patrollers')  els.patrollers.classList.add('show');
-        if (panel === 'prone')       { proneSub.classList.add('show'); pronePolygons.forEach(p => p.setMap(map)); }
+        if (panel === 'prone')       { proneSub.classList.add('show'); heatmap.setMap(map); }
     };
 }
 </script>
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA1Pg5n88KZWoCCmyEM_1ohx-elRiAVWtY&callback=initMap" async defer></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA1Pg5n88KZWoCCmyEM_1ohx-elRiAVWtY&libraries=visualization&callback=initMap" async defer></script>
 @endpush

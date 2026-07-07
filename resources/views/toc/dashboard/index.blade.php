@@ -11,7 +11,7 @@
             <div class="card-body">
                 <h6 class="fw-bold mb-3" style="color:#111827;">Total Registered<br>Riders</h6>
                 <div class="d-flex align-items-center gap-3">
-                    <span class="fw-black lh-1" style="font-size:2.4rem; color:#111827;">{{ $totalRiders ?? 59 }}</span>
+                    <span class="fw-black lh-1" style="font-size:2.4rem; color:#111827;">{{ $totalRiders ?? 0 }}</span>
                     <span class="lh-sm" style="font-size:.78rem; color:#4b5563;">Registered Riders in<br>the System</span>
                 </div>
             </div>
@@ -23,7 +23,7 @@
             <div class="card-body">
                 <h6 class="fw-bold mb-3" style="color:#111827;">Total Accident<br>Detected</h6>
                 <div class="d-flex align-items-center gap-3">
-                    <span class="fw-black lh-1" style="font-size:2.4rem; color:#111827;">{{ $totalAccidents ?? 24 }}</span>
+                    <span class="fw-black lh-1" style="font-size:2.4rem; color:#111827;">{{ $totalAccidents ?? 0 }}</span>
                     <span class="lh-sm" style="font-size:.78rem; color:#4b5563;">Registered Rides in the<br>System</span>
                 </div>
             </div>
@@ -35,7 +35,7 @@
             <div class="card-body">
                 <h6 class="fw-bold mb-3" style="color:#111827;">Active Devices</h6>
                 <div class="d-flex align-items-center gap-3">
-                    <span class="fw-black lh-1" style="font-size:2.4rem; color:#111827;">{{ $activeDevices ?? 30 }}</span>
+                    <span class="fw-black lh-1" style="font-size:2.4rem; color:#111827;">{{ $activeDevices ?? 0 }}</span>
                     <span class="lh-sm" style="font-size:.78rem; color:#4b5563;">Devices are currently<br>connected</span>
                 </div>
             </div>
@@ -71,9 +71,7 @@
                     <td></td>
                 </tr>
                 @empty
-                <tr><td>Darnil Castanieto</td><td>Brgy. Cabuloan,<br>Urdaneta City, Pangasinan</td><td>09123456789</td><td>35</td><td>Brgy. San Vicente East,<br>Urdaneta City, Pangasinan</td><td></td></tr>
-                <tr><td>Rester Mendoza</td><td>Brgy. Pinmaludpod,<br>Urdaneta City, Pangasinan</td><td>09987456321</td><td>26</td><td>Brgy. Sugcong,<br>Urdaneta City Pangasinan</td><td></td></tr>
-                <tr><td>Gian Rodriguez</td><td>Urdaneta Bypass Road</td><td>09147853698</td><td>23</td><td>Brgy. Camantiles,<br>Urdaneta City, Pangasinan</td><td></td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-3">No incidents reported yet.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -106,9 +104,7 @@
                     <td></td>
                 </tr>
                 @empty
-                <tr><td>ITK-BLK4-GRP5-MDL1</td><td>Rester Mendoza</td><td>20</td><td>09123645871</td><td></td></tr>
-                <tr><td>ITK-BLK4-GRP5-MDL2</td><td>Darnil Castanieto</td><td>20</td><td>09663322558</td><td></td></tr>
-                <tr><td>ITK-BLK4-GRP5-MDL3</td><td>Gian Rodriguez</td><td>20</td><td>09875461235</td><td></td></tr>
+                <tr><td colspan="5" class="text-center text-muted py-3">No registered riders yet.</td></tr>
                 @endforelse
             </tbody>
         </table>

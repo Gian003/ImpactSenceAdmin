@@ -40,30 +40,13 @@ Route::post('/forgot-password', function (Request $request) {
 
         $resetUrl = url('/reset-password/' . $token . '?email=' . urlencode($email));
 
-        \Illuminate\Support\Facades\Mail::send([], [], function ($message) use ($email, $resetUrl, $user) {
-            $message->to($email)
-                ->subject('ImpactSense — Reset Your Password')
-                ->html('
-                    <p>Hello <strong>' . e($user->full_name) . '</strong>,</p>
-                    <p>You requested a password reset for your ImpactSense admin account.</p>
-                    <p>Click the button below to set a new password. This link expires in <strong>60 minutes</strong>.</p>
-                    <p style="margin:24px 0;">
-                        <a href="' . $resetUrl . '"
-                           style="background:#1b3d52; color:#fff; padding:12px 28px;
-                                  text-decoration:none; border-radius:6px; font-weight:bold;">
-                            Reset Password
-                        </a>
-                    </p>
-                    <p style="color:#666; font-size:12px;">
-                        If you did not request this, no action is needed.<br>
-                        Direct link: ' . $resetUrl . '
-                    </p>
-                ');
-        });
+        \Illuminate\Support\Facades\Mail::to($email)->send(
+            new \App\Mail\ResetPasswordMail($user->full_name, $resetUrl)
+        );
     }
 
     return back()->with('status', 'If that email exists in our system, a reset link has been sent.');
-})->name('password.email');
+})->middleware('throttle:3,1')->name('password.email');
 
 Route::get('/reset-password/{token}', function ($token) {
     return view('auth.reset-password', ['token' => $token]);
@@ -161,6 +144,22 @@ Route::prefix('toc')
                     ->whereIn('status', ['pending', 'dispatched'])
                     ->latest()->take(10)->get(),
                 'patrollers' => PatrolUnit::all(),
+                // All historical incident coordinates, used to plot the
+                // accident-prone-area heatmap (as opposed to $pendingIncidents,
+                // which only covers what's currently active).
+                'allIncidentCoords' => Incident::whereNotNull('latitude')
+                    ->whereNotNull('longitude')
+                    ->get(['latitude', 'longitude']),
+                // Speed Reports per Area: real GPS speed samples from paired
+                // helmets, grouped into ~111m grid cells (3 decimal places).
+                // Areas with fewer than 3 samples are excluded as too noisy.
+                'speedReports' => \Illuminate\Support\Facades\DB::table('speed_reports')
+                    ->selectRaw('ROUND(latitude, 3) as lat_group, ROUND(longitude, 3) as lng_group, ROUND(AVG(speed_kph)) as avg_speed, COUNT(*) as samples')
+                    ->groupBy('lat_group', 'lng_group')
+                    ->having('samples', '>=', 3)
+                    ->orderByDesc('avg_speed')
+                    ->limit(10)
+                    ->get(),
             ]);
         })->name('location.tracking');
 
@@ -179,11 +178,18 @@ Route::prefix('toc')
                 'dispatched_at'  => now(),
             ]);
 
+            // Patrol unit's own status was previously never updated on
+            // dispatch, so it always read "off_duty" no matter what — the
+            // Stand By / In Action split (and the map marker color) is only
+            // meaningful once this actually flips.
+            $patrol->update(['status' => 'dispatched']);
+
             $incident->load(['rider', 'patrolUnit']);
 
             try {
                 broadcast(new \App\Events\PatrolDispatched($incident));
                 broadcast(new \App\Events\IncidentStatusUpdated($incident));
+                broadcast(new \App\Events\PatrolLocationUpdated($patrol));
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning('Pusher broadcast failed (dispatch)', ['error' => $e->getMessage()]);
             }
@@ -316,12 +322,26 @@ Route::prefix('investigation')
                 'incidents' => Incident::with('rider')->latest()->get(),
             ]);
         })->name('incidents.index');
-        Route::get('/incident-records',   fn () => view('investigation.incident-records.index'))  ->name('incident-records.index');
-        Route::get('/incident-report', fn () => view('investigation.incident-report.index'))->name('incident-report.index');
+        Route::get('/incident-records', function () {
+            return view('investigation.incident-records.index', [
+                'incidents' => Incident::with('rider')->latest()->get(),
+            ]);
+        })->name('incident-records.index');
+
+        Route::get('/incident-records/{incident}', function (Incident $incident) {
+            $incident->load(['rider', 'patrolUnit']);
+            return view('investigation.incident-records.show', ['incident' => $incident]);
+        })->name('incident-records.show');
+
+        Route::get('/incident-report', function () {
+            return view('investigation.incident-report.index', [
+                'incidents' => Incident::with('rider')->latest()->get(),
+            ]);
+        })->name('incident-report.index');
 
         Route::get('/incident-report/{incident}', function (Incident $incident) {
             $incident->load(['rider', 'patrolUnit', 'helmet']);
-            return view('investigation.incident-report.index', [
+            return view('investigation.incident-report.show', [
                 'incident'     => $incident,
                 'fullName'     => $incident->rider?->full_name     ?? 'N/A',
                 'datetime'     => $incident->created_at->format('F d, h:i A'),
@@ -344,5 +364,9 @@ Route::prefix('investigation')
                 ])->filter(fn($e) => $e['time'] !== '—'),
             ]);
         })->name('incident-report.show');
-        Route::get('/helmet',             fn () => view('investigation.helmet.index'))            ->name('helmet.index');
+        Route::get('/helmet', function () {
+            return view('investigation.helmet.index', [
+                'riders' => User::with('helmet')->where('role', 'rider')->latest()->get(),
+            ]);
+        })->name('helmet.index');
     });

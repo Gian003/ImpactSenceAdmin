@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Events\IncidentReported;
 use App\Events\IncidentStatusUpdated;
 use App\Events\PatrolDispatched;
+use App\Events\PatrolLocationUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Incident;
 use App\Services\FcmService;
@@ -109,6 +110,22 @@ class IncidentController extends Controller
 
         $incident->update($updates);
         $incident->load(['rider', 'patrolUnit']);
+
+        // Keep the patrol unit's own status in sync with the incident they're
+        // responding to — this previously never changed after being set to
+        // "off_duty" at registration approval, so Stand By / In Action (and
+        // the TOC map marker color) never reflected reality.
+        if ($data['status'] === 'dispatched') {
+            $patrol->update(['status' => 'dispatched']);
+        } elseif (in_array($data['status'], ['resolved', 'false_alarm'], true)) {
+            $patrol->update(['status' => 'off_duty']);
+        }
+
+        try {
+            broadcast(new PatrolLocationUpdated($patrol));
+        } catch (\Throwable $e) {
+            Log::warning('Pusher broadcast failed (PatrolLocationUpdated)', ['error' => $e->getMessage()]);
+        }
 
         // Broadcast dispatch event to the assigned patrol unit — non-fatal if Pusher not configured
         if ($data['status'] === 'dispatched') {

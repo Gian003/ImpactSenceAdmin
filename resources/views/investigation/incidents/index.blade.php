@@ -59,6 +59,7 @@
                     <th>Type</th>
                     <th>Time</th>
                     <th>Status</th>
+                    <th>IRF</th>
                 </tr>
             </thead>
             <tbody id="incidentsBody">
@@ -78,9 +79,15 @@
                             {{ $uiStatus }}
                         </span>
                     </td>
+                    <td onclick="event.stopPropagation()">
+                        <a href="{{ route('investigation.incident-records.show', $incident) }}"
+                           class="text-decoration-none" style="color:#4b7a96; font-weight:600; font-size:.8rem;">
+                            Generate
+                        </a>
+                    </td>
                 </tr>
                 @empty
-                <tr><td colspan="5" class="text-center text-muted py-4" style="font-size:.83rem;">No incidents recorded yet.</td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-4" style="font-size:.83rem;">No incidents recorded yet.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -118,7 +125,7 @@
                         .filter(r => r.style.display !== 'none');
         const header = 'Full Name,Location,Type,Time,Status\n';
         const csv    = header + rows.map(r => {
-            const cells = [...r.querySelectorAll('td')].map(td => `"${td.innerText.replace(/\n/g,' ')}"`);
+            const cells = [...r.querySelectorAll('td')].slice(0, -1).map(td => `"${td.innerText.replace(/\n/g,' ')}"`);
             return cells.join(',');
         }).join('\n');
 

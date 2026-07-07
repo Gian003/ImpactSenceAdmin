@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\PatrolLocationUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Patrol\LoginRequest;
 use App\Http\Requests\Patrol\UpdateLocationRequest;
@@ -9,6 +10,7 @@ use App\Models\PatrolUnit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class PatrolAuthController extends Controller
 {
@@ -42,10 +44,20 @@ class PatrolAuthController extends Controller
 
     public function updateLocation(UpdateLocationRequest $request): JsonResponse
     {
-        $request->user()->update([
+        $patrol = $request->user();
+
+        $patrol->update([
             'current_latitude'  => $request->latitude,
             'current_longitude' => $request->longitude,
         ]);
+
+        // Live marker update on the TOC location-tracking map — non-fatal if
+        // Pusher isn't configured, same as the other broadcast call sites.
+        try {
+            broadcast(new PatrolLocationUpdated($patrol));
+        } catch (\Throwable $e) {
+            Log::warning('Pusher broadcast failed (PatrolLocationUpdated)', ['error' => $e->getMessage()]);
+        }
 
         return $this->apiResponse(true, 'Location updated');
     }

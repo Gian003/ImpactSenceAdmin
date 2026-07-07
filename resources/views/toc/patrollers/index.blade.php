@@ -21,14 +21,12 @@
                 @forelse($patrollers ?? [] as $patroller)
                 <tr>
                     <td>{{ $patroller->full_name }}</td>
-                    <td>{{ $patroller->location }}</td>
-                    <td>{{ $patroller->status }}</td>
-                    <td>{{ $patroller->contact_number }}</td>
+                    <td>{{ $patroller->current_latitude ? round($patroller->current_latitude,4).'°N, '.round($patroller->current_longitude,4).'°E' : '—' }}</td>
+                    <td>{{ ucfirst(str_replace('_', ' ', $patroller->status)) }}</td>
+                    <td>{{ $patroller->mobile_number ?? 'N/A' }}</td>
                 </tr>
                 @empty
-                <tr><td>Vladimir V. Lalas</td><td>Brgy. Tipuso, Urdaneta City, Pangasinan</td><td>Online</td><td>09123645871</td></tr>
-                <tr><td>Anabel T. Ganancial</td><td>Brgy. Nancayasan, Urdaneta City, Pangasinan</td><td>Online</td><td>09663322558</td></tr>
-                <tr><td>Jesus D. Tambalo</td><td>Brgy. Mabanogbog, Urdaneta City, Pangasinan</td><td>Online</td><td>09875461235</td></tr>
+                <tr><td colspan="4" class="text-center text-muted py-3">No registered patrollers yet.</td></tr>
                 @endforelse
             </tbody>
         </table>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Helmet;
+use App\Models\SpeedReport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -78,22 +79,36 @@ class HelmetController extends Controller
         return $this->apiResponse(true, 'Helmet unpaired');
     }
 
-    // IoT device: push battery level + active status
+    // IoT device: push battery level + active status, piggybacking the same
+    // heartbeat with an optional GPS speed sample (lets Speed Reports per Area
+    // aggregate real data without a second periodic call from the device).
     public function updateStatus(Request $request): JsonResponse
     {
-        $request->validate([
+        $data = $request->validate([
             'device_code'   => ['required', 'string'],
             'battery_level' => ['required', 'integer', 'between:0,100'],
             'is_active'     => ['sometimes', 'boolean'],
+            'latitude'      => ['sometimes', 'numeric', 'between:-90,90'],
+            'longitude'     => ['sometimes', 'numeric', 'between:-180,180'],
+            'speed_kph'     => ['sometimes', 'integer', 'min:0'],
         ]);
 
-        $helmet = Helmet::where('device_code', $request->device_code)->first();
+        $helmet = Helmet::where('device_code', $data['device_code'])->first();
 
         if (! $helmet) {
             return $this->apiResponse(false, 'Device not found', null, 404);
         }
 
         $helmet->update($request->only('battery_level', 'is_active'));
+
+        if (isset($data['latitude'], $data['longitude'], $data['speed_kph'])) {
+            SpeedReport::create([
+                'helmet_id'  => $helmet->id,
+                'latitude'   => $data['latitude'],
+                'longitude'  => $data['longitude'],
+                'speed_kph'  => $data['speed_kph'],
+            ]);
+        }
 
         return $this->apiResponse(true, 'Status updated', $helmet->fresh());
     }

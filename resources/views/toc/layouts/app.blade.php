@@ -17,7 +17,7 @@
     <aside class="sidebar d-flex flex-column">
 
         <div class="d-flex align-items-center gap-2 px-3 py-3 border-bottom border-white border-opacity-10">
-            <img src="{{ asset('images/pnp-urdaneta.png') }}" alt="PNP Urdaneta"
+            <img src="{{ asset('images/pnp_urdaneta_logo.png') }}" alt="PNP Urdaneta"
                  width="50" height="50" style="object-fit:contain; flex-shrink:0;">
             <div class="text-white fw-bold lh-sm" style="font-size:.88rem; letter-spacing:.05em;">
                 PNP<br>URDANETA
@@ -102,7 +102,7 @@
 
             {{-- User info row --}}
             <div class="d-flex align-items-center gap-2 mb-2">
-                <img src="{{ asset('images/pnp-urdaneta.png') }}" alt="PNP"
+                <img src="{{ asset('images/pnp_urdaneta_logo.png') }}" alt="PNP"
                      width="38" height="38"
                      style="object-fit:contain; flex-shrink:0; border-radius:50%;">
                 <div class="text-white lh-sm" style="font-size:.78rem; overflow:hidden;">
@@ -155,7 +155,7 @@
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="min-width:230px;">
                         @stack('notifications')
-                        <li>
+                        <li id="notificationDivider">
                             <hr class="dropdown-divider my-1">
                         </li>
                         <li>
@@ -193,6 +193,10 @@
     const pusher  = new Pusher(key, { cluster });
     const channel = pusher.subscribe('incidents');
 
+    // Exposed so other pages (e.g. location tracking) can subscribe to their
+    // own channels on this same connection instead of opening a second one.
+    window.pusherClient = pusher;
+
     // New incident arrives — add a row to the Recent Incidents table
     channel.bind('incident.reported', function (data) {
         const tbody = document.getElementById('incidents-tbody');
@@ -213,10 +217,40 @@
         if (bell) bell.classList.add('text-warning');
     });
 
-    // Status changed — update the badge if visible
+    // Status changed (e.g. a patrol pressed "I'm On My Way" / "Mark as
+    // Arrived" in the mobile app) — flash the bell and drop a real entry into
+    // the notification dropdown. Previously this only tried to update a
+    // .status-badge element that doesn't exist anywhere in the TOC views, so
+    // patrol status updates produced no visible feedback at all.
     channel.bind('incident.status_updated', function (data) {
-        const badge = document.querySelector(`[data-incident-id="${data.id}"] .status-badge`);
-        if (badge) badge.textContent = data.status;
+        const bell = document.getElementById('bellBtn');
+        if (bell) bell.classList.add('text-warning');
+
+        const divider = document.getElementById('notificationDivider');
+        if (!divider) return;
+
+        const patrolName = data.patrol_unit?.full_name;
+        const label = patrolName
+            ? `${patrolName} marked incident #${data.id} as ${data.status}`
+            : `Incident #${data.id} status changed to ${data.status}`;
+
+        const li = document.createElement('li');
+        const span = document.createElement('span');
+        span.className = 'dropdown-item';
+        span.style.fontSize = '.82rem';
+        span.textContent = label;
+        li.appendChild(span);
+        divider.parentNode.insertBefore(li, divider);
+    });
+
+    // New patrol registration submitted — bump the sidebar pending-count badge live
+    const registrationsChannel = pusher.subscribe('patrol-registrations');
+    registrationsChannel.bind('registration.submitted', function () {
+        const regBadge = document.getElementById('reg-badge');
+        if (!regBadge) return;
+        const count = (parseInt(regBadge.textContent, 10) || 0) + 1;
+        regBadge.textContent = count;
+        regBadge.style.display = '';
     });
 })();
 </script>
