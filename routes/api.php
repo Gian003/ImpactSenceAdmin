@@ -43,6 +43,7 @@ Route::prefix('rider')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout',    [RiderAuthController::class, 'logout']);
         Route::get('profile',    [RiderAuthController::class, 'profile']);
+        Route::patch('profile',  [RiderAuthController::class, 'updateProfile']);
         Route::post('fcm-token', [RiderAuthController::class, 'updateFcmToken']);
 
         // Helmet pairing

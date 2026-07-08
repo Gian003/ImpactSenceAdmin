@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rider\LoginRequest;
 use App\Http\Requests\Rider\RegisterRequest;
+use App\Http\Requests\Rider\UpdateProfileRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,10 +58,20 @@ class RiderAuthController extends Controller
         return $this->apiResponse(true, 'Profile retrieved', $request->user());
     }
 
+    public function updateProfile(UpdateProfileRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $user->update($request->validated());
+
+        return $this->apiResponse(true, 'Profile updated', $user->fresh());
+    }
+
     public function updateFcmToken(Request $request): JsonResponse
     {
-        $request->validate(['fcm_token' => ['required', 'string']]);
+        $request->validate(['fcm_token' => ['nullable', 'string']]);
         $request->user()->update(['fcm_token' => $request->fcm_token]);
-        return $this->apiResponse(true, 'FCM token updated');
+        return $this->apiResponse(true, $request->fcm_token === null
+            ? 'Push notifications disabled'
+            : 'FCM token updated');
     }
 }
