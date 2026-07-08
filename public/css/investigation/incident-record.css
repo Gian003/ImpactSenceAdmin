@@ -149,6 +149,88 @@
     background: #244f6b;
 }
 
+/* SAVE is the lighter of the two save actions — outlined, so SAVE & PRINT
+   (solid, filled) reads as the more "final" action. Previously both buttons
+   resolved to the exact same solid navy, with no visual way to tell them
+   apart before clicking. */
+.btn-irf-save {
+    background: transparent !important;
+    color: #1b3d52;
+    border: 1.5px solid #1b3d52 !important;
+}
+
+.btn-irf-save:hover {
+    background: #eaf1f5 !important;
+}
+
+/* Link-to-Incident panel — an app control, not part of the official PNP
+   form, so it's visually set apart from the printable document and (see
+   @media print below) excluded from the printout entirely. */
+.irf-link-panel {
+    background: #eef5f9;
+    border: 1.5px solid #b8cdd9;
+    border-radius: .5rem;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+}
+
+.irf-link-panel .irf-label {
+    color: #1b3d52;
+    font-size: .68rem;
+}
+
+.irf-link-panel select {
+    border: 1px solid #b8cdd9;
+    border-radius: .35rem;
+    padding: 5px 8px;
+    background: #fff;
+    font-size: .8rem;
+    font-family: 'Segoe UI', sans-serif;
+    color: #1a1a1a;
+}
+
+/* Toast — brief save confirmation. Success auto-dismisses; errors stay until
+   the investigator closes it, since a failed save losing typed data is
+   worth actually noticing. */
+.irf-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 2000;
+    min-width: 280px;
+    max-width: 380px;
+    padding: 12px 16px;
+    border-radius: .5rem;
+    font-size: .85rem;
+    font-weight: 600;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .18);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: irf-toast-in .25s ease-out;
+}
+
+.irf-toast.irf-toast-success { background: #2a7c5b; color: #fff; }
+.irf-toast.irf-toast-error   { background: #c0392b; color: #fff; }
+
+.irf-toast button {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: inherit;
+    opacity: .8;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.irf-toast button:hover { opacity: 1; }
+
+@keyframes irf-toast-in {
+    from { transform: translateY(-12px); opacity: 0; }
+    to   { transform: translateY(0);     opacity: 1; }
+}
+
 /* Progress report table */
 .progress-table {
     width: 100%;
@@ -193,4 +275,7 @@
     .irf-printable { position: absolute; top: 0; left: 0; width: 100%; }
     .irf-actions { display: none !important; }
     .sidebar { display: none !important; }
+    /* App-only controls that live inside .irf-printable for layout reasons
+       but have no business on an official printed PNP form. */
+    .irf-link-panel, .irf-toast { display: none !important; }
 }

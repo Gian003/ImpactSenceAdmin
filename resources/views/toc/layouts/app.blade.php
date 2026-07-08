@@ -47,6 +47,16 @@
                 Location Tracking
             </a>
 
+            <a href="{{ route('toc.speed-zones.index') }}"
+               class="nav-link {{ request()->routeIs('toc.speed-zones*') ? 'active' : '' }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     viewBox="0 0 24 24">
+                    <path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/>
+                </svg>
+                Speed Zones
+            </a>
+
             <a href="{{ route('toc.helmet.index') }}"
                class="nav-link {{ request()->routeIs('toc.helmet*') ? 'active' : '' }}">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
@@ -56,7 +66,7 @@
                     <path d="M3 12v2a9 9 0 0 0 18 0v-2"/>
                     <path d="M9 21h6"/>
                 </svg>
-                Registered Helmet
+                Registered Device
             </a>
 
             <a href="{{ route('toc.patrollers.index') }}"
@@ -106,7 +116,7 @@
                      width="38" height="38"
                      style="object-fit:contain; flex-shrink:0; border-radius:50%;">
                 <div class="text-white lh-sm" style="font-size:.78rem; overflow:hidden;">
-                    <div class="fw-bold" style="font-size:.82rem; letter-spacing:.04em;">PNP TCO</div>
+                    <div class="fw-bold" style="font-size:.82rem; letter-spacing:.04em;">PNP TOC</div>
                     <div style="opacity:.65; font-size:.7rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                         {{ Auth::guard('toc')->user()->full_name ?? 'Admin' }}
                     </div>
@@ -153,18 +163,12 @@
                             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                         </svg>
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="min-width:230px;">
-                        @stack('notifications')
-                        <li id="notificationDivider">
-                            <hr class="dropdown-divider my-1">
-                        </li>
-                        <li>
-                            <form method="POST" action="{{ route('logout') }}">
-                                @csrf
-                                <button type="submit" class="dropdown-item text-danger" style="font-size:.82rem;">
-                                    Log out
-                                </button>
-                            </form>
+                    {{-- Live notification feed only — logout already lives in the
+                         sidebar, it doesn't belong mixed into notifications. --}}
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0"
+                        id="notificationList" style="min-width:260px; max-height:340px; overflow-y:auto;">
+                        <li id="notificationEmpty">
+                            <span class="dropdown-item text-muted" style="font-size:.82rem;">No notifications yet</span>
                         </li>
                     </ul>
                 </div>
@@ -197,42 +201,16 @@
     // own channels on this same connection instead of opening a second one.
     window.pusherClient = pusher;
 
-    // New incident arrives — add a row to the Recent Incidents table
-    channel.bind('incident.reported', function (data) {
-        const tbody = document.getElementById('incidents-tbody');
-        if (!tbody) return;
+    // Single source of truth for the bell dropdown — every real event (new
+    // accident, status change, new registration) goes through this, so the
+    // feed is consistent across every TOC page instead of being built from
+    // page-specific server-rendered content.
+    function addNotification(label) {
+        const list = document.getElementById('notificationList');
+        if (!list) return;
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${data.rider?.full_name ?? 'N/A'}</td>
-            <td>${data.address ?? 'N/A'}</td>
-            <td>${data.rider?.phone_number ?? 'N/A'}</td>
-            <td>N/A</td>
-            <td>N/A</td>
-            <td></td>`;
-        tbody.prepend(tr);
-
-        // Flash the bell notification
-        const bell = document.getElementById('bellBtn');
-        if (bell) bell.classList.add('text-warning');
-    });
-
-    // Status changed (e.g. a patrol pressed "I'm On My Way" / "Mark as
-    // Arrived" in the mobile app) — flash the bell and drop a real entry into
-    // the notification dropdown. Previously this only tried to update a
-    // .status-badge element that doesn't exist anywhere in the TOC views, so
-    // patrol status updates produced no visible feedback at all.
-    channel.bind('incident.status_updated', function (data) {
-        const bell = document.getElementById('bellBtn');
-        if (bell) bell.classList.add('text-warning');
-
-        const divider = document.getElementById('notificationDivider');
-        if (!divider) return;
-
-        const patrolName = data.patrol_unit?.full_name;
-        const label = patrolName
-            ? `${patrolName} marked incident #${data.id} as ${data.status}`
-            : `Incident #${data.id} status changed to ${data.status}`;
+        const empty = document.getElementById('notificationEmpty');
+        if (empty) empty.remove();
 
         const li = document.createElement('li');
         const span = document.createElement('span');
@@ -240,17 +218,56 @@
         span.style.fontSize = '.82rem';
         span.textContent = label;
         li.appendChild(span);
-        divider.parentNode.insertBefore(li, divider);
+        list.prepend(li);
+
+        const bell = document.getElementById('bellBtn');
+        if (bell) bell.classList.add('text-warning');
+    }
+
+    // New incident arrives — add a row to the Recent Incidents table (if
+    // present on this page) and a notification entry (on every page).
+    channel.bind('incident.reported', function (data) {
+        const tbody = document.getElementById('incidents-tbody');
+        if (tbody) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${data.rider?.full_name ?? 'N/A'}</td>
+                <td>${data.address ?? 'N/A'}</td>
+                <td>${data.rider?.phone_number ?? 'N/A'}</td>
+                <td>N/A</td>
+                <td>N/A</td>
+                <td></td>`;
+            tbody.prepend(tr);
+        }
+
+        addNotification(
+            `New accident reported: ${data.rider?.full_name ?? 'Unknown rider'} at ${data.address ?? 'unknown location'}`
+        );
     });
 
-    // New patrol registration submitted — bump the sidebar pending-count badge live
+    // Status changed (e.g. a patrol pressed "I'm On My Way" / "Mark as
+    // Arrived" in the mobile app).
+    channel.bind('incident.status_updated', function (data) {
+        const patrolName = data.patrol_unit?.full_name;
+        addNotification(
+            patrolName
+                ? `${patrolName} marked incident #${data.id} as ${data.status}`
+                : `Incident #${data.id} status changed to ${data.status}`
+        );
+    });
+
+    // New patrol registration submitted — bump the sidebar pending-count
+    // badge live and drop a notification entry.
     const registrationsChannel = pusher.subscribe('patrol-registrations');
-    registrationsChannel.bind('registration.submitted', function () {
+    registrationsChannel.bind('registration.submitted', function (data) {
         const regBadge = document.getElementById('reg-badge');
-        if (!regBadge) return;
-        const count = (parseInt(regBadge.textContent, 10) || 0) + 1;
-        regBadge.textContent = count;
-        regBadge.style.display = '';
+        if (regBadge) {
+            const count = (parseInt(regBadge.textContent, 10) || 0) + 1;
+            regBadge.textContent = count;
+            regBadge.style.display = '';
+        }
+
+        addNotification(`New patrol registration: ${data.full_name ?? 'Unknown applicant'}`);
     });
 })();
 </script>

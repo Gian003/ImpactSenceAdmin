@@ -4,6 +4,9 @@
 
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/investigation/incident-report.css') }}">
+{{-- .status-badge / .status-active / .status-resolved, reused for the
+     Generated Incident Records rows below. --}}
+<link rel="stylesheet" href="{{ asset('css/investigation/incidents.css') }}">
 @endpush
 
 @section('content')
@@ -132,8 +135,8 @@
         <div class="timeline-log">
             @forelse($timeline as $entry)
             <div class="timeline-entry">
-                <span class="timeline-time">{{ $entry->time }}</span>
-                <span class="timeline-text">{{ $entry->description }}</span>
+                <span class="timeline-time">{{ $entry['time'] }}</span>
+                <span class="timeline-text">{{ $entry['description'] }}</span>
             </div>
             @empty
             @php
@@ -164,6 +167,51 @@
     </div>
 
 </div>
+
+{{-- GENERATED INCIDENT RECORDS — populated when someone presses SAVE or
+     SAVE & PRINT on the IRF for this incident (see
+     investigation.incident-records.store). Previously the IRF only ever
+     produced a printout with no trace of it here; now every save is
+     recorded and listed below, and each row reopens that exact record. --}}
+@isset($incidentRecords)
+<div class="report-bottom-grid" style="margin-top:16px;">
+    <div class="report-card" style="grid-column: 1 / -1;">
+        <div class="d-flex align-items-center justify-content-between mb-2" style="margin-bottom:14px;">
+            <div class="timeline-title" style="margin-bottom:0;">Generated Incident Records (IRF)</div>
+            @if($incidentRecords->isNotEmpty())
+            <span class="badge rounded-pill" style="background:#1b3d52; font-size:.72rem;">
+                {{ $incidentRecords->count() }}
+            </span>
+            @endif
+        </div>
+        @if($incidentRecords->isEmpty())
+        <div class="timeline-log" style="color:#9ca3af; font-size:.85rem;">
+            No Incident Record Form has been generated for this incident yet.
+        </div>
+        @else
+        <div class="timeline-log" style="gap:6px;">
+            @foreach($incidentRecords as $record)
+            <a href="{{ route('investigation.incident-records.reprint', $record) }}"
+               class="timeline-entry irf-record-row {{ $record->printed_at ? 'irf-record-printed' : '' }}"
+               style="text-decoration:none; color:inherit;">
+                <span class="timeline-time">{{ $record->created_at->format('M d, Y h:i A') }}</span>
+                <span class="timeline-text d-flex align-items-center flex-wrap gap-2">
+                    <span class="status-badge {{ $record->printed_at ? 'status-resolved' : 'status-active' }}" style="font-size:.68rem; padding:.15rem .6rem;">
+                        {{ $record->printed_at ? 'Saved & Printed' : 'Saved' }}
+                    </span>
+                    <span>by {{ $record->generatedBy?->full_name ?? 'Unknown officer' }}</span>
+                    @if($record->printed_at)
+                        <span style="color:#2a7c5b; font-size:.78rem;">· printed {{ $record->printed_at->format('M d, h:i A') }}</span>
+                    @endif
+                    <span class="text-muted" style="font-size:.78rem;">— click to reopen</span>
+                </span>
+            </a>
+            @endforeach
+        </div>
+        @endif
+    </div>
+</div>
+@endisset
 
 @endsection
 
@@ -217,5 +265,5 @@
         setTimeout(() => { win.print(); win.close(); }, 800);
     }
 </script>
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA1Pg5n88KZWoCCmyEM_1ohx-elRiAVWtY&callback=initReportMap" async defer></script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}&callback=initReportMap" async defer></script>
 @endpush

@@ -148,6 +148,30 @@
     line-height: 1.4;
 }
 
+/* Generated Incident Records rows — reuses .timeline-entry's layout but
+   these are actually clickable (reopen a saved IRF), unlike the read-only
+   activity log above, so they get a hover state and a left accent to signal
+   that difference instead of looking identical to inert log lines. */
+.irf-record-row {
+    border-left: 3px solid #b8cdd9;
+    padding: 8px 10px 8px 12px;
+    border-radius: 0 .4rem .4rem 0;
+    transition: background .15s, border-color .15s;
+}
+
+.irf-record-row:hover {
+    background: #f0f7fa;
+    border-left-color: #1b3d52;
+}
+
+.irf-record-row.irf-record-printed {
+    border-left-color: #2a7c5b;
+}
+
+.irf-record-row.irf-record-printed:hover {
+    background: #eef7f2;
+}
+
 /* Map */
 .map-title {
     font-size: .92rem;

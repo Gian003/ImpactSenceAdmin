@@ -2,19 +2,6 @@
 
 @section('title', 'Location Tracking')
 
-@push('notifications')
-    @foreach($patrollers ?? [] as $p)
-        @if($p->status === 'dispatched')
-        <li><span class="dropdown-item" style="font-size:.82rem;">{{ $p->full_name }} is on the way</span></li>
-        @elseif($p->status === 'off_duty')
-        <li><span class="dropdown-item" style="font-size:.82rem;">{{ $p->full_name }} is available</span></li>
-        @endif
-    @endforeach
-    @if(($patrollers ?? collect())->isEmpty())
-        <li><span class="dropdown-item text-muted" style="font-size:.82rem;">No active patrol updates</span></li>
-    @endif
-@endpush
-
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/toc/location.css') }}">
 @endpush
@@ -114,22 +101,60 @@
         </button>
     </div>
 
-    {{-- Speed Reports panel — real GPS speed samples from paired helmets,
-         grouped into ~111m areas (no street/barangay names: that would need
-         reverse geocoding, which isn't wired up yet). --}}
+    {{-- Speed Reports panel — police-defined posted limits (Speed Zones)
+         compared against real observed GPS speed samples within each
+         zone's radius. Zones averaging above their limit are flagged and
+         sorted to the top. --}}
     <div class="map-panel" id="speedPanel">
-        <div class="panel-card" style="min-width:380px;">
+        <div class="panel-card" style="min-width:420px;">
             <table>
-                <thead><tr><th>Area</th><th>Samples</th><th>Average Speed</th></tr></thead>
+                <thead><tr><th>Zone</th><th>Limit</th><th>Observed Avg</th><th>Samples</th><th>Status</th></tr></thead>
                 <tbody>
-                    @forelse($speedReports ?? [] as $s)
+                    @forelse($speedZoneStats ?? [] as $z)
                     <tr>
-                        <td>{{ $s->lat_group }}°N, {{ $s->lng_group }}°E</td>
-                        <td>{{ $s->samples }}</td>
-                        <td>{{ $s->avg_speed }} kph</td>
+                        <td>{{ $z->name }}</td>
+                        <td>{{ $z->speed_limit_kph }} kph</td>
+                        <td>{{ $z->avg_speed !== null ? $z->avg_speed . ' kph' : '—' }}</td>
+                        <td>{{ $z->sample_count }}</td>
+                        <td>
+                            @if($z->avg_speed === null)
+                                <span style="color:#9ca3af;">No data</span>
+                            @elseif($z->is_violating)
+                                <span style="color:#e53e3e; font-weight:700;">⚠ Speeding</span>
+                            @else
+                                <span style="color:#2a7c5b; font-weight:700;">OK</span>
+                            @endif
+                        </td>
                     </tr>
                     @empty
-                    <tr><td colspan="3" style="color:#9ca3af; font-size:.75rem;">No speed data reported yet.</td></tr>
+                    <tr><td colspan="5" style="color:#9ca3af; font-size:.75rem;">No speed zones defined yet.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+            <div class="p-2 text-end" style="border-top:1px solid #eee;">
+                <a href="{{ route('toc.speed-zones.index') }}" style="font-size:.78rem; color:#1b3d52; font-weight:600;">
+                    Manage Speed Zones →
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {{-- Accident Prone Area panel — real incidents ranked by density,
+         grouped into ~111m areas (the heatmap layer plots every point;
+         this ranks the areas so they're actually actionable). --}}
+    <div class="map-panel" id="pronePanel">
+        <div class="panel-card" style="min-width:340px;">
+            <table>
+                <thead><tr><th>Area</th><th>Incidents</th><th>Severe</th></tr></thead>
+                <tbody>
+                    @forelse($incidentHotspots ?? [] as $h)
+                    <tr>
+                        <td>{{ $h->lat_group }}°N, {{ $h->lng_group }}°E</td>
+                        <td>{{ $h->incident_count }}</td>
+                        <td>{{ $h->severe_count }}</td>
+                    </tr>
+                    @empty
+                    <tr><td colspan="3" style="color:#9ca3af; font-size:.75rem;">No incidents recorded yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -176,10 +201,48 @@
 
 @push('scripts')
 <script>
+// Panel/legend toggling is defined at top level — independent of
+// initMap() below — so the Speed Reports and Patrollers tabs work even
+// if Google Maps fails to load (bad/restricted API key, no network,
+// quota exceeded). Only the Accident Prone Area heatmap actually needs
+// the map object, and degrades gracefully (sub-legend still shows,
+// heatmap layer just won't render) if `heatmap` never gets assigned.
+let map = null;
+let heatmap = null;
+let activePanel = null;
+
+window.togglePanel = function(panel) {
+    const els  = { speed: document.getElementById('speedPanel'), patrollers: document.getElementById('patrollersPanel'), prone: document.getElementById('pronePanel') };
+    const btns = { speed: document.getElementById('btnSpeed'), prone: document.getElementById('btnProne'), patrollers: document.getElementById('btnPatrollers') };
+    const proneSub = document.getElementById('proneSub');
+
+    const closing = activePanel === panel;
+
+    // Reset everything
+    Object.values(els).forEach(e => e.classList.remove('show'));
+    Object.values(btns).forEach(b => b.classList.remove('active'));
+    proneSub.classList.remove('show');
+    if (heatmap) heatmap.setMap(null);
+    activePanel = null;
+
+    if (closing) return;
+
+    // Activate chosen panel
+    activePanel = panel;
+    btns[panel].classList.add('active');
+    if (panel === 'speed')       els.speed.classList.add('show');
+    if (panel === 'patrollers')  els.patrollers.classList.add('show');
+    if (panel === 'prone') {
+        proneSub.classList.add('show');
+        els.prone.classList.add('show');
+        if (heatmap) heatmap.setMap(map);
+    }
+};
+
 function initMap() {
     const center = { lat: 15.9755, lng: 120.5651 };
 
-    const map = new google.maps.Map(document.getElementById('map'), {
+    map = new google.maps.Map(document.getElementById('map'), {
         center,
         zoom: 14,
         mapTypeId: 'roadmap',
@@ -313,37 +376,13 @@ function initMap() {
         })
         .filter(Boolean);
 
-    const heatmap = new google.maps.visualization.HeatmapLayer({
+    heatmap = new google.maps.visualization.HeatmapLayer({
         data: heatmapPoints,
         radius: 40,
     });
-
-    let activePanel = null;
-
-    window.togglePanel = function(panel) {
-        const els  = { speed: document.getElementById('speedPanel'), patrollers: document.getElementById('patrollersPanel') };
-        const btns = { speed: document.getElementById('btnSpeed'), prone: document.getElementById('btnProne'), patrollers: document.getElementById('btnPatrollers') };
-        const proneSub = document.getElementById('proneSub');
-
-        const closing = activePanel === panel;
-
-        // Reset everything
-        Object.values(els).forEach(e => e.classList.remove('show'));
-        Object.values(btns).forEach(b => b.classList.remove('active'));
-        proneSub.classList.remove('show');
-        heatmap.setMap(null);
-        activePanel = null;
-
-        if (closing) return;
-
-        // Activate chosen panel
-        activePanel = panel;
-        btns[panel].classList.add('active');
-        if (panel === 'speed')       els.speed.classList.add('show');
-        if (panel === 'patrollers')  els.patrollers.classList.add('show');
-        if (panel === 'prone')       { proneSub.classList.add('show'); heatmap.setMap(map); }
-    };
 }
 </script>
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA1Pg5n88KZWoCCmyEM_1ohx-elRiAVWtY&libraries=visualization&callback=initMap" async defer></script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}&libraries=visualization&callback=initMap"
+        async defer
+        onerror="document.getElementById('map').innerHTML = '&lt;div style=&quot;padding:20px;color:#b91c1c;font-size:.85rem;&quot;&gt;Failed to load Google Maps. Check your internet connection or API key.&lt;/div&gt;'"></script>
 @endpush
