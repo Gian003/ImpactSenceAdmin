@@ -31,7 +31,7 @@
 </div>
 
 {{-- INCIDENT REPORTS TABLE — pick an incident to view its full report --}}
-<div class="card border rounded-3" style="border-color:#d1dde6 !important;">
+<div class="card border-0 rounded-3 overflow-hidden" style="border: 1px solid #e8d5d9 !important;">
     <div class="table-responsive">
         <table class="incidents-table w-100" id="incidentsTable">
             <thead>
@@ -63,7 +63,7 @@
                     </td>
                     <td onclick="event.stopPropagation()">
                         <a href="{{ route('investigation.incident-report.show', $incident) }}"
-                           class="text-decoration-none" style="color:#4b7a96; font-weight:600; font-size:.8rem;">
+                           class="incident-action-link">
                             View Report
                         </a>
                     </td>

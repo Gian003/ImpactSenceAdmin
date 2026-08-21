@@ -66,7 +66,7 @@
                     <path d="M3 12v2a9 9 0 0 0 18 0v-2"/>
                     <path d="M9 21h6"/>
                 </svg>
-                Registered Device
+                Device Management
             </a>
 
             <a href="{{ route('toc.patrollers.index') }}"
@@ -80,6 +80,18 @@
                     <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
                 </svg>
                 Patrollers Unit
+            </a>
+
+            <a href="{{ route('toc.analytics.index') }}"
+               class="nav-link {{ request()->routeIs('toc.analytics*') ? 'active' : '' }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     viewBox="0 0 24 24">
+                    <line x1="18" y1="20" x2="18" y2="10"/>
+                    <line x1="12" y1="20" x2="12" y2="4"/>
+                    <line x1="6"  y1="20" x2="6"  y2="14"/>
+                </svg>
+                Accident Analytics
             </a>
 
             <a href="{{ route('toc.patrol-registrations.index') }}"
@@ -153,9 +165,44 @@
 
             <div class="d-flex align-items-center gap-3">
                 {{-- Bell --}}
+                @php
+                    $bellIncidents = \App\Models\Incident::with('rider')
+                        ->orderByDesc('created_at')
+                        ->limit(8)
+                        ->get();
+                    $bellRegs = \App\Models\PatrolRegistration::where('status','pending')
+                        ->orderByDesc('created_at')
+                        ->limit(5)
+                        ->get();
+                    $bellItems = collect();
+                    foreach ($bellIncidents as $inc) {
+                        $bellItems->push([
+                            'time' => $inc->created_at,
+                            'text' => 'Accident reported: ' .
+                                      ($inc->rider->full_name ?? 'Unknown rider') .
+                                      ' — ' . ($inc->address ?? 'unknown location'),
+                        ]);
+                    }
+                    foreach ($bellRegs as $reg) {
+                        $bellItems->push([
+                            'time' => $reg->created_at,
+                            'text' => 'Patrol registration: ' . $reg->first_name . ' ' . $reg->last_name,
+                        ]);
+                    }
+                    $bellItems = $bellItems->sortByDesc('time')->values();
+                @endphp
                 <div class="dropdown">
-                    <button class="btn rounded-circle p-2 border-0" style="background:#1b3d52;"
+                    <button class="btn rounded-circle p-2 border-0 position-relative" style="background:#7B1A2E;"
                             id="bellBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                        @if($bellItems->isNotEmpty())
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                              id="bellDot" style="font-size:.55rem; padding:.25rem .4rem; min-width:1.1rem;">
+                            {{ min($bellItems->count(), 9) }}
+                        </span>
+                        @else
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                              id="bellDot" style="font-size:.55rem; padding:.25rem .4rem; min-width:1.1rem; display:none;">0</span>
+                        @endif
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
                              stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                              viewBox="0 0 24 24">
@@ -163,13 +210,27 @@
                             <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
                         </svg>
                     </button>
-                    {{-- Live notification feed only — logout already lives in the
-                         sidebar, it doesn't belong mixed into notifications. --}}
+                    {{-- Pre-loaded from DB + topped up by Pusher in real time --}}
                     <ul class="dropdown-menu dropdown-menu-end shadow border-0"
-                        id="notificationList" style="min-width:260px; max-height:340px; overflow-y:auto;">
+                        id="notificationList" style="min-width:280px; max-height:360px; overflow-y:auto;">
+                        @forelse($bellItems as $item)
+                        <li>
+                            <span class="dropdown-item d-flex flex-column gap-0 py-2"
+                                  style="font-size:.8rem; white-space:normal; line-height:1.35;">
+                                <span>{{ $item['text'] }}</span>
+                                <span class="text-muted" style="font-size:.72rem;">
+                                    {{ $item['time']->diffForHumans() }}
+                                </span>
+                            </span>
+                        </li>
+                        @if(!$loop->last)
+                        <li><hr class="dropdown-divider my-0"></li>
+                        @endif
+                        @empty
                         <li id="notificationEmpty">
                             <span class="dropdown-item text-muted" style="font-size:.82rem;">No notifications yet</span>
                         </li>
+                        @endforelse
                     </ul>
                 </div>
             </div>
@@ -212,16 +273,29 @@
         const empty = document.getElementById('notificationEmpty');
         if (empty) empty.remove();
 
+        // Build new item
         const li = document.createElement('li');
-        const span = document.createElement('span');
-        span.className = 'dropdown-item';
-        span.style.fontSize = '.82rem';
-        span.textContent = label;
-        li.appendChild(span);
+        li.innerHTML = `<span class="dropdown-item d-flex flex-column gap-0 py-2"
+                              style="font-size:.8rem;white-space:normal;line-height:1.35;">
+                            <span>${label}</span>
+                            <span class="text-muted" style="font-size:.72rem;">Just now</span>
+                        </span>`;
+
+        // Divider between new item and existing items
+        if (list.children.length > 0) {
+            const divLi = document.createElement('li');
+            divLi.innerHTML = '<hr class="dropdown-divider my-0">';
+            list.prepend(divLi);
+        }
         list.prepend(li);
 
-        const bell = document.getElementById('bellBtn');
-        if (bell) bell.classList.add('text-warning');
+        // Bump badge counter
+        const dot = document.getElementById('bellDot');
+        if (dot) {
+            const cur = parseInt(dot.textContent, 10) || 0;
+            dot.textContent = Math.min(cur + 1, 9);
+            dot.style.display = '';
+        }
     }
 
     // New incident arrives — add a row to the Recent Incidents table (if

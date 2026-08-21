@@ -20,6 +20,7 @@ class Helmet extends Model
         'battery_level',
         'is_active',
         'paired_at',
+        'sim_phone_number',
     ];
 
     // pairing_key is deliberately NOT fillable - it must only ever be set by

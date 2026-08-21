@@ -1,15 +1,55 @@
 <?php
 
+use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\InvitationController;
+use App\Http\Controllers\Admin\UserManagementController;
 use App\Models\Helmet;
 use App\Models\Incident;
 use App\Models\PatrolUnit;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
 // ── PUBLIC ────────────────────────────────────────────────────────────────────
-Route::get('/', fn () => view('welcome'));
+Route::get('/', function () {
+    return view('welcome', [
+        'statRiders'  => \App\Models\User::where('role', 'rider')->count(),
+        'statAccidents' => \App\Models\Incident::count(),
+        'statDevices' => \App\Models\Helmet::where('is_active', true)->count(),
+    ]);
+});
+
+// ── SUPERADMIN ────────────────────────────────────────────────────────────────
+Route::prefix('admin')->name('admin.')->group(function () {
+
+    // Public — login + invitation accept
+    Route::get('/login',  [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/logout',[AuthController::class, 'logout'])->name('logout');
+
+    Route::get('/invite/{token}',  [InvitationController::class, 'showAccept'])->name('invitations.accept');
+    Route::post('/invite/{token}', [InvitationController::class, 'accept']);
+
+    // Protected — require admin guard
+    Route::middleware('admin')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+        Route::prefix('users')->name('users.')->group(function () {
+            Route::get('/',                                [UserManagementController::class, 'index'])->name('index');
+            Route::patch('/toc/{officer}/toggle',          [UserManagementController::class, 'toggleToc'])->name('toggle-toc');
+            Route::patch('/investigation/{officer}/toggle',[UserManagementController::class, 'toggleInvestigation'])->name('toggle-investigation');
+        });
+
+        Route::prefix('invitations')->name('invitations.')->group(function () {
+            Route::get('/',           [InvitationController::class, 'index'])->name('index');
+            Route::post('/',          [InvitationController::class, 'store'])->name('store');
+            Route::delete('/{invitation}', [InvitationController::class, 'destroy'])->name('destroy');
+        });
+    });
+});
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 Route::get('/login', fn () => view('auth.login'))->name('login');
@@ -199,8 +239,31 @@ Route::prefix('toc')
 
         // ── Speed zones — police-maintained posted speed limits ────────────────
         Route::get('/speed-zones', function () {
+            $zones        = \App\Models\SpeedZone::with('creator')->latest()->get();
+            $speedSamples = \App\Models\SpeedReport::all(['latitude', 'longitude', 'speed_kph']);
+
+            $speedZoneStats = $zones->mapWithKeys(function ($zone) use ($speedSamples) {
+                $samplesInZone = $speedSamples->filter(
+                    fn ($s) => \App\Models\SpeedZone::distanceMeters(
+                        (float) $zone->latitude, (float) $zone->longitude,
+                        (float) $s->latitude,    (float) $s->longitude,
+                    ) <= $zone->radius_meters
+                );
+
+                $avgSpeed = $samplesInZone->isNotEmpty()
+                    ? (int) round($samplesInZone->avg('speed_kph'))
+                    : null;
+
+                return [$zone->id => (object) [
+                    'avg_speed'    => $avgSpeed,
+                    'sample_count' => $samplesInZone->count(),
+                    'is_violating' => $avgSpeed !== null && $avgSpeed > $zone->speed_limit_kph,
+                ]];
+            });
+
             return view('toc.speed-zones.index', [
-                'zones' => \App\Models\SpeedZone::with('creator')->latest()->get(),
+                'zones'          => $zones,
+                'speedZoneStats' => $speedZoneStats,
             ]);
         })->name('speed-zones.index');
 
@@ -265,8 +328,34 @@ Route::prefix('toc')
         })->name('incidents.dispatch');
 
         Route::get('/helmet', function () {
+            $days    = 7;
+            $trend   = function ($query, $col = 'created_at') use ($days) {
+                $raw = $query
+                    ->selectRaw("DATE($col) as day, COUNT(*) as total")
+                    ->where($col, '>=', now()->subDays($days - 1)->startOfDay())
+                    ->groupBy('day')
+                    ->pluck('total', 'day');
+                $out = [];
+                for ($i = $days - 1; $i >= 0; $i--) {
+                    $out[] = (int) ($raw[now()->subDays($i)->format('Y-m-d')] ?? 0);
+                }
+                return $out;
+            };
+
+            $labels = collect(range($days - 1, 0))->map(
+                fn($i) => now()->subDays($i)->format('D')
+            )->values()->all();
+
             return view('toc.helmet.index', [
-                'riders' => User::with('helmet')->where('role', 'rider')->latest()->get(),
+                'riders'        => User::with('helmet')->where('role', 'rider')->latest()->get(),
+                'totalRiders'   => User::where('role', 'rider')->count(),
+                'totalDevices'  => Helmet::count(),
+                'activeDevices' => Helmet::where('is_active', true)->count(),
+                'pairedDevices' => Helmet::whereNotNull('paired_at')->count(),
+                'chartLabels'   => $labels,
+                'trendRiders'   => $trend(User::where('role', 'rider')),
+                'trendDevices'  => $trend(Helmet::query()),
+                'trendIncidents'=> $trend(Incident::query()),
             ]);
         })->name('helmet.index');
 
@@ -361,6 +450,48 @@ Route::prefix('toc')
                 'patrollers' => PatrolUnit::all(),
             ]);
         })->name('patrollers.index');
+
+        // ── Accident Analytics ────────────────────────────────────────────
+        Route::get('/analytics', function () {
+            $total = Incident::count();
+
+            $pronestAreas = Incident::select('address', DB::raw('count(*) as total'))
+                ->whereNotNull('address')->where('address', '!=', '')
+                ->groupBy('address')->orderByDesc('total')->limit(10)->get();
+
+            $byMonth = Incident::select(
+                    DB::raw("DATE_FORMAT(created_at,'%Y-%m') as month"),
+                    DB::raw('count(*) as total')
+                )
+                ->where('created_at', '>=', now()->subMonths(11)->startOfMonth())
+                ->groupBy('month')->orderBy('month')->get();
+
+            $bySeverity = Incident::select('severity', DB::raw('count(*) as total'))
+                ->groupBy('severity')->get();
+
+            $byDayOfWeek = Incident::select(
+                    DB::raw('DAYOFWEEK(created_at) as day'),
+                    DB::raw('count(*) as total')
+                )
+                ->groupBy('day')->orderBy('day')->get()->keyBy('day');
+
+            $byHour = Incident::select(
+                    DB::raw('HOUR(created_at) as hour'),
+                    DB::raw('count(*) as total')
+                )
+                ->groupBy('hour')->orderBy('hour')->get()->keyBy('hour');
+
+            $heatmapPoints = Incident::select('latitude', 'longitude', 'severity')
+                ->whereNotNull('latitude')->whereNotNull('longitude')->get();
+
+            $criticalCount  = $bySeverity->where('severity', 'critical')->sum('total');
+            $resolvedCount  = Incident::where('status', 'resolved')->count();
+
+            return view('toc.analytics.index', compact(
+                'total', 'pronestAreas', 'byMonth', 'bySeverity',
+                'byDayOfWeek', 'byHour', 'heatmapPoints', 'criticalCount', 'resolvedCount'
+            ));
+        })->name('analytics.index');
     });
 
 // ── INVESTIGATION — Investigation────────────────────────────────────────
@@ -378,8 +509,16 @@ Route::prefix('investigation')
             ]);
         })->name('dashboard');
         Route::get('/incidents', function () {
+            $incidents = Incident::with('rider')->latest()->get();
+            // Distinct months present in the data for the date filter dropdown
+            $incidentMonths = $incidents
+                ->pluck('created_at')
+                ->map(fn ($d) => $d->format('F'))
+                ->unique()
+                ->values();
             return view('investigation.incidents.index', [
-                'incidents' => Incident::with('rider')->latest()->get(),
+                'incidents'      => $incidents,
+                'incidentMonths' => $incidentMonths,
             ]);
         })->name('incidents.index');
         // Latest 200 incidents for the "Link to Incident" picker on the IRF
@@ -501,4 +640,46 @@ Route::prefix('investigation')
                 'riders' => User::with('helmet')->where('role', 'rider')->latest()->get(),
             ]);
         })->name('helmet.index');
+
+        // ── Accident Analytics (read-only) ────────────────────────────────
+        Route::get('/analytics', function () {
+            $total = Incident::count();
+
+            $pronestAreas = Incident::select('address', DB::raw('count(*) as total'))
+                ->whereNotNull('address')->where('address', '!=', '')
+                ->groupBy('address')->orderByDesc('total')->limit(10)->get();
+
+            $byMonth = Incident::select(
+                    DB::raw("DATE_FORMAT(created_at,'%Y-%m') as month"),
+                    DB::raw('count(*) as total')
+                )
+                ->where('created_at', '>=', now()->subMonths(11)->startOfMonth())
+                ->groupBy('month')->orderBy('month')->get();
+
+            $bySeverity = Incident::select('severity', DB::raw('count(*) as total'))
+                ->groupBy('severity')->get();
+
+            $byDayOfWeek = Incident::select(
+                    DB::raw('DAYOFWEEK(created_at) as day'),
+                    DB::raw('count(*) as total')
+                )
+                ->groupBy('day')->orderBy('day')->get()->keyBy('day');
+
+            $byHour = Incident::select(
+                    DB::raw('HOUR(created_at) as hour'),
+                    DB::raw('count(*) as total')
+                )
+                ->groupBy('hour')->orderBy('hour')->get()->keyBy('hour');
+
+            $heatmapPoints = Incident::select('latitude', 'longitude', 'severity')
+                ->whereNotNull('latitude')->whereNotNull('longitude')->get();
+
+            $criticalCount = $bySeverity->where('severity', 'critical')->sum('total');
+            $resolvedCount = Incident::where('status', 'resolved')->count();
+
+            return view('investigation.analytics.index', compact(
+                'total', 'pronestAreas', 'byMonth', 'bySeverity',
+                'byDayOfWeek', 'byHour', 'heatmapPoints', 'criticalCount', 'resolvedCount'
+            ));
+        })->name('analytics.index');
     });

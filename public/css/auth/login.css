@@ -1,56 +1,145 @@
+* { box-sizing: border-box; }
+
 body {
-    background: #cdd9e0;
+    min-height: 100vh;
+    background: #F2F0F0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-family: 'Segoe UI', sans-serif;
+    padding: 1rem;
 }
 
-.login-card {
-    background: #b8cdd9;
-    border-radius: 1.25rem;
+.login-shell {
+    display: flex;
+    width: 860px;
+    max-width: 96vw;
+    min-height: 500px;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,.18);
+    border: 2px solid #bfc4cc;
+}
+
+/* ── Left panel ── */
+.left-panel {
+    width: 42%;
+    background: #7B1A2E;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 28px;
+    gap: 20px;
+    text-align: center;
+}
+.left-panel img { width: 100px; height: 100px; object-fit: contain; }
+.left-panel h2 {
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 900;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* ── Right panel ── */
+.right-panel {
+    flex: 1;
+    background: #7B1A2E;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 36px;
+    border-left: 1px solid rgba(255,255,255,.12);
+}
+
+.brand-logo  { width: 64px; height: 64px; object-fit: contain; margin-bottom: 6px; }
+.brand-name  { color: #fff; font-size: 1.05rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 2px; }
+.brand-sub   { color: rgba(255,255,255,.55); font-size: .78rem; margin-bottom: 28px; }
+
+.field-wrap {
+    width: 100%;
+    background: rgba(255,255,255,.10);
+    border: 1px solid rgba(255,255,255,.22);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    margin-bottom: 12px;
+}
+.field-wrap svg { flex-shrink: 0; opacity: .55; }
+.field-wrap input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-size: .9rem;
+    padding: 13px 0;
+}
+.field-wrap input::placeholder { color: rgba(255,255,255,.4); }
+
+.btn-login {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 30px;
+    background: #F4C5D0;
+    color: #7B1A2E;
+    font-weight: 800;
+    font-size: .9rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background .15s;
+}
+.btn-login:hover { background: #eaa8b8; }
+
+.remember-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 4px;
+}
+.remember-row label {
+    color: rgba(255,255,255,.55);
+    font-size: .78rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+.remember-row a {
+    color: rgba(255,255,255,.55);
+    font-size: .78rem;
+    text-decoration: none;
+}
+.remember-row a:hover { color: #fff; }
+
+.alert-danger-maroon {
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,100,100,.4);
+    color: #fca5a5;
+    border-radius: 7px;
+    padding: 9px 14px;
+    font-size: .83rem;
+    width: 100%;
+    margin-bottom: 12px;
 }
 
 .divider {
     width: 1px;
-    background: #8fb3c8;
+    background: rgba(255,255,255,.15);
     align-self: stretch;
 }
 
-.input-group-text {
-    background: transparent;
-    border-color: #7aafc8;
-    color: #4a7a96;
-}
-
-.form-control {
-    background: transparent;
-    border-color: #7aafc8;
-    color: #1a3a4f;
-}
-
-.form-control:focus {
-    background: transparent;
-    border-color: #4a7a96;
-    box-shadow: 0 0 0 0.2rem rgba(74, 122, 150, .25);
-    color: #1a3a4f;
-}
-
-.form-control::placeholder {
-    color: #6a9ab5;
-}
-
-.btn-login {
-    background: #1a3a4f;
-    color: #fff;
-    border-radius: 9999px;
-    border: none;
-    font-weight: 600;
-    transition: background .2s;
-}
-
-.btn-login:hover {
-    background: #244f6b;
-    color: #fff;
-}
-
-.form-check-input {
-    border-color: #7aafc8;
+@media (max-width: 600px) {
+    .left-panel { display: none; }
+    .divider    { display: none; }
 }

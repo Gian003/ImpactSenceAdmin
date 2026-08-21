@@ -32,24 +32,24 @@
         <option value="Resolved">Resolved</option>
     </select>
 
-    {{-- Date filter --}}
+    {{-- Date filter — populated from months that actually have incidents --}}
     <select class="form-select" id="dateFilter" style="max-width:150px; border-color:#c8d8e4;">
         <option value="">All Dates</option>
-        <option value="April">April</option>
-        <option value="March">March</option>
-        <option value="February">February</option>
+        @foreach($incidentMonths ?? [] as $month)
+        <option value="{{ $month }}">{{ $month }}</option>
+        @endforeach
     </select>
 
     {{-- Export --}}
     <button class="btn text-white fw-semibold px-4" onclick="exportTable()"
-            style="background:#1b3d52; border-color:#1b3d52;">
+            style="background:#7B1A2E; border-color:#7B1A2E; border-radius:7px;">
         Export
     </button>
 
 </div>
 
 {{-- INCIDENTS TABLE --}}
-<div class="card border rounded-3" style="border-color:#d1dde6 !important;">
+<div class="card border-0 rounded-3 overflow-hidden" style="border: 1px solid #e8d5d9 !important;">
     <div class="table-responsive">
         <table class="incidents-table w-100" id="incidentsTable">
             <thead>
@@ -81,7 +81,7 @@
                     </td>
                     <td onclick="event.stopPropagation()">
                         <a href="{{ route('investigation.incident-records.show', $incident) }}"
-                           class="text-decoration-none" style="color:#4b7a96; font-weight:600; font-size:.8rem;">
+                           class="incident-action-link">
                             Generate
                         </a>
                     </td>

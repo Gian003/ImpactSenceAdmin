@@ -52,6 +52,10 @@ return [
             'driver'   => 'session',
             'provider' => 'investigation_officers',
         ],
+        'admin' => [
+            'driver'   => 'session',
+            'provider' => 'admins',
+        ],
     ],
 
     /*
@@ -83,6 +87,10 @@ return [
         'investigation_officers' => [
             'driver' => 'eloquent',
             'model'  => InvestigationOfficer::class,
+        ],
+        'admins' => [
+            'driver' => 'eloquent',
+            'model'  => \App\Models\Admin::class,
         ],
     ],
 

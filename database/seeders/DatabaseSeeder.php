@@ -54,5 +54,8 @@ class DatabaseSeeder extends Seeder
                 'password'  => Hash::make('password'),
             ]
         );
+
+        // ── Demo dataset (riders, helmets, patrol units, incidents) ───────────
+        $this->call(DemoDataSeeder::class);
     }
 }

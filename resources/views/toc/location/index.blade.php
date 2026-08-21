@@ -106,34 +106,93 @@
          zone's radius. Zones averaging above their limit are flagged and
          sorted to the top. --}}
     <div class="map-panel" id="speedPanel">
-        <div class="panel-card" style="min-width:420px;">
-            <table>
-                <thead><tr><th>Zone</th><th>Limit</th><th>Observed Avg</th><th>Samples</th><th>Status</th></tr></thead>
-                <tbody>
-                    @forelse($speedZoneStats ?? [] as $z)
-                    <tr>
-                        <td>{{ $z->name }}</td>
-                        <td>{{ $z->speed_limit_kph }} kph</td>
-                        <td>{{ $z->avg_speed !== null ? $z->avg_speed . ' kph' : '—' }}</td>
-                        <td>{{ $z->sample_count }}</td>
-                        <td>
-                            @if($z->avg_speed === null)
-                                <span style="color:#9ca3af;">No data</span>
-                            @elseif($z->is_violating)
-                                <span style="color:#e53e3e; font-weight:700;">⚠ Speeding</span>
-                            @else
-                                <span style="color:#2a7c5b; font-weight:700;">OK</span>
-                            @endif
-                        </td>
-                    </tr>
-                    @empty
-                    <tr><td colspan="5" style="color:#9ca3af; font-size:.75rem;">No speed zones defined yet.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-            <div class="p-2 text-end" style="border-top:1px solid #eee;">
-                <a href="{{ route('toc.speed-zones.index') }}" style="font-size:.78rem; color:#1b3d52; font-weight:600;">
-                    Manage Speed Zones →
+        <div class="panel-card" style="min-width:520px; max-width:600px;">
+            {{-- Panel header --}}
+            <div style="background:#7B1A2E; padding:10px 16px; display:flex; align-items:center; justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="#F4C5D0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>
+                    <span style="color:#fff; font-size:.82rem; font-weight:700; letter-spacing:.03em;">Speed Reports per Area</span>
+                </div>
+                <span style="font-size:.72rem; color:#F4C5D0;">
+                    {{ ($speedZoneStats ?? collect())->count() }} zone{{ ($speedZoneStats ?? collect())->count() !== 1 ? 's' : '' }}
+                </span>
+            </div>
+
+            {{-- Scrollable body --}}
+            <div style="max-height:260px; overflow-y:auto;">
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr>
+                            <th style="padding:9px 14px; background:#7B1A2E; color:#fff; font-size:.75rem; font-weight:700; border:none; white-space:nowrap;">Zone</th>
+                            <th style="padding:9px 14px; background:#7B1A2E; color:#fff; font-size:.75rem; font-weight:700; border:none; white-space:nowrap;">Limit</th>
+                            <th style="padding:9px 14px; background:#7B1A2E; color:#fff; font-size:.75rem; font-weight:700; border:none; white-space:nowrap;">Observed Avg</th>
+                            <th style="padding:9px 14px; background:#7B1A2E; color:#fff; font-size:.75rem; font-weight:700; border:none; white-space:nowrap;">Speed Gauge</th>
+                            <th style="padding:9px 14px; background:#7B1A2E; color:#fff; font-size:.75rem; font-weight:700; border:none; white-space:nowrap;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($speedZoneStats ?? [] as $z)
+                        @php
+                            $pct      = ($z->avg_speed !== null && $z->speed_limit_kph > 0)
+                                            ? min(round(($z->avg_speed / $z->speed_limit_kph) * 100), 140)
+                                            : null;
+                            $barColor = $z->avg_speed === null ? '#d1d5db'
+                                        : ($z->is_violating ? '#e53e3e' : '#2a7c5b');
+                        @endphp
+                        <tr>
+                            <td style="padding:10px 14px; font-size:.8rem; color:#1e293b; font-weight:600; border-bottom:1px solid #f5eeef; max-width:140px; word-break:break-word;">
+                                {{ $z->name }}
+                            </td>
+                            <td style="padding:10px 14px; font-size:.8rem; color:#475569; border-bottom:1px solid #f5eeef; white-space:nowrap;">
+                                <span style="display:inline-block; padding:2px 9px; border-radius:20px; font-size:.72rem; font-weight:600; background:#fce7f3; color:#7B1A2E;">
+                                    {{ $z->speed_limit_kph }} kph
+                                </span>
+                            </td>
+                            <td style="padding:10px 14px; font-size:.8rem; color:#374151; border-bottom:1px solid #f5eeef; white-space:nowrap;">
+                                {{ $z->avg_speed !== null ? number_format($z->avg_speed, 1) . ' kph' : '—' }}
+                                @if($z->avg_speed !== null && $z->sample_count > 0)
+                                <div style="font-size:.68rem; color:#9ca3af; margin-top:1px;">{{ $z->sample_count }} sample{{ $z->sample_count !== 1 ? 's' : '' }}</div>
+                                @endif
+                            </td>
+                            <td style="padding:10px 14px; border-bottom:1px solid #f5eeef; min-width:100px;">
+                                @if($pct !== null)
+                                <div style="position:relative; height:7px; background:#f1f5f9; border-radius:4px; overflow:hidden; min-width:80px;">
+                                    <div style="position:absolute; top:0; left:0; height:100%; width:{{ min($pct, 100) }}%; background:{{ $barColor }}; border-radius:4px; transition:width .3s;"></div>
+                                    @if($z->is_violating)
+                                    <div style="position:absolute; top:0; left:71.4%; height:100%; width:1.5px; background:#7B1A2E; opacity:.7;"></div>
+                                    @endif
+                                </div>
+                                <div style="font-size:.67rem; color:#9ca3af; margin-top:2px;">{{ $pct }}% of limit</div>
+                                @else
+                                <div style="font-size:.74rem; color:#d1d5db; font-style:italic;">no data</div>
+                                @endif
+                            </td>
+                            <td style="padding:10px 14px; border-bottom:1px solid #f5eeef; white-space:nowrap;">
+                                @if($z->avg_speed === null)
+                                    <span style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:.71rem; font-weight:600; background:#f1f5f9; color:#9ca3af;">No data</span>
+                                @elseif($z->is_violating)
+                                    <span style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:.71rem; font-weight:700; background:#fef2f2; color:#e53e3e;">⚠ Speeding</span>
+                                @else
+                                    <span style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:.71rem; font-weight:700; background:#f0fdf4; color:#2a7c5b;">✓ OK</span>
+                                @endif
+                            </td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="5" style="padding:24px 16px; text-align:center; color:#9ca3af; font-size:.78rem;">
+                                No speed zones defined yet.
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            {{-- Footer --}}
+            <div style="padding:8px 14px; border-top:1px solid #f5eeef; display:flex; align-items:center; justify-content:space-between; background:#fafafa;">
+                <span style="font-size:.72rem; color:#9ca3af;">Progress bar = observed avg vs posted limit</span>
+                <a href="{{ route('toc.speed-zones.index') }}" style="font-size:.78rem; color:#7B1A2E; font-weight:700; text-decoration:none;">
+                    Manage Zones →
                 </a>
             </div>
         </div>

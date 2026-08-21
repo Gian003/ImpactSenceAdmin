@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Log;
 use App\Models\Helmet;
 use App\Models\Incident;
+use App\Services\EmergencyNotificationService;
 use App\Services\FcmService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,7 @@ class DeviceController extends Controller
      * IoT helmet reports a crash directly.
      * Auth: device_code (no Sanctum token required).
      */
-    public function reportIncident(Request $request, FcmService $fcm): JsonResponse
+    public function reportIncident(Request $request, FcmService $fcm, EmergencyNotificationService $emergencyNotifier): JsonResponse
     {
         $data = $request->validate([
             'device_code' => ['required', 'string'],
@@ -71,6 +72,11 @@ class DeviceController extends Controller
             );
         }
 
+        // SMS (Semaphore) + voice call (Twilio TTS) to the rider's emergency
+        // contact. Both are non-fatal (see EmergencyNotificationService) - a
+        // failure here never blocks the incident report response below.
+        $emergencyNotifier->notifyEmergencyContact($incident);
+
         return $this->apiResponse(true, 'Incident reported', [
             'incident_id' => $incident->id,
             'status'      => $incident->status,
@@ -109,9 +115,10 @@ class DeviceController extends Controller
         }
 
         return $this->apiResponse(true, 'Emergency contact retrieved', [
-            'rider_name'   => $helmet->rider->full_name,
-            'name'         => $contact->name,
-            'phone_number' => $contact->phone_number,
+            'rider_name'       => $helmet->rider->full_name,
+            'name'             => $contact->name,
+            'phone_number'     => $contact->phone_number,
+            'sim_phone_number' => $helmet->sim_phone_number,
         ]);
     }
 }

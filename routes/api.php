@@ -36,6 +36,10 @@ Route::prefix('rider')->group(function () {
     Route::post('register', [RiderAuthController::class, 'register']);
     Route::post('login',    [RiderAuthController::class, 'login']);
 
+    // OTP — send a 6-digit code to the given email, verify it before registration
+    Route::post('otp/send',   [RiderAuthController::class, 'otpSend']);
+    Route::post('otp/verify', [RiderAuthController::class, 'otpVerify']);
+
     // IoT device status push (device_code used instead of token)
     Route::post('helmet/status', [HelmetController::class, 'updateStatus']);
 
@@ -43,7 +47,9 @@ Route::prefix('rider')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout',    [RiderAuthController::class, 'logout']);
         Route::get('profile',    [RiderAuthController::class, 'profile']);
-        Route::post('fcm-token', [RiderAuthController::class, 'updateFcmToken']);
+        Route::patch('profile',          [RiderAuthController::class, 'updateProfile']);
+        Route::post('change-password',   [RiderAuthController::class, 'changePassword']);
+        Route::post('fcm-token',         [RiderAuthController::class, 'updateFcmToken']);
 
         // Helmet pairing
         Route::get('helmet', [HelmetController::class, 'show']);
@@ -57,8 +63,9 @@ Route::prefix('rider')->group(function () {
         Route::delete('helmet/pair', [HelmetController::class, 'unpair']);
 
         // Incidents
-        Route::get('incidents',  [IncidentController::class, 'index']);
-        Route::post('incidents', [IncidentController::class, 'store']);
+        Route::get('incidents',                          [IncidentController::class, 'index']);
+        Route::post('incidents',                         [IncidentController::class, 'store']);
+        Route::patch('incidents/{incident}/cancel',      [IncidentController::class, 'cancelIncident']);
 
         // Emergency contacts
         Route::get('emergency-contacts',          [EmergencyContactController::class, 'index']);
