@@ -1,49 +1,63 @@
-/* Brand-specific sidebar rules */
+/* ── ImpactSense Investigation — PNP Urdaneta Maroon Theme ─── */
+:root {
+    --inv-maroon      : #7B1A2E;
+    --inv-maroon-dark : #5C1020;
+    --inv-bg          : #F2F0F0;
+}
 
 body {
-    background: #f0f4f7;
+    background: var(--inv-bg);
     font-family: 'Segoe UI', sans-serif;
 }
 
-/* Sidebar wrapper — dark teal covers header and footer */
+/* Sidebar */
 .sidebar {
     width: 220px;
     min-height: 100vh;
-    background: #1b3d52;
+    background: var(--inv-maroon);
     flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
 }
 
-/* Nav body — lighter steel-blue "sandwich" middle */
+/* Nav — same maroon background, no split */
 .sidebar nav {
-    background: #7ba4b8;
+    background: transparent;
 }
 
-/* Inactive nav links — dark navy text on light background */
+/* Inactive nav links */
 .sidebar .nav-link {
-    color: #1b3d52;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: rgba(255, 255, 255, .72);
     font-size: .88rem;
     font-weight: 500;
-    padding: .65rem 1.1rem;
+    padding: 10px 20px;
+    border-left: 3px solid transparent;
     border-radius: 0;
-    transition: background .15s, color .15s;
+    transition: background .15s, color .15s, border-color .15s;
+    text-decoration: none;
 }
 
 .sidebar .nav-link:hover {
-    background: rgba(0, 0, 0, .1);
-    color: #1b3d52;
+    background: rgba(255, 255, 255, .10);
+    color: #fff;
 }
 
-/* Active nav link — dark teal pill, indented from edges */
+/* Active nav link */
 .sidebar .nav-link.active {
-    background: #1b3d52;
+    background: rgba(255, 255, 255, .18);
     color: #fff;
     font-weight: 600;
-    border-radius: 10px;
-    margin: 3px 10px;
-    padding: .6rem 1rem;
+    border-left-color: #F4C5D0;
+    border-radius: 0;
+    margin: 0;
+    padding: 10px 20px;
 }
 
-/* Icons follow the text color automatically (currentColor) */
 .sidebar .nav-link svg {
     flex-shrink: 0;
 }

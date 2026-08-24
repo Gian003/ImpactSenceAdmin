@@ -194,8 +194,33 @@
 
 /* Print */
 @media print {
-    .report-actions { display: none !important; }
-    .sidebar { display: none !important; }
-    body { background: #fff; }
-    .report-card { break-inside: avoid; }
+    /* Hide chrome */
+    .report-actions,
+    aside.sidebar,
+    .d-flex.justify-content-between.align-items-center { display: none !important; }
+
+    /* Make main fill the full page */
+    body, html { background: #fff !important; margin: 0 !important; }
+    .d-flex { display: block !important; }
+    main.flex-grow-1 { width: 100% !important; padding: 0 !important; overflow: visible !important; }
+    .px-4 { padding-left: 8px !important; padding-right: 8px !important; }
+
+    /* Stack grid cards vertically so nothing gets cut off */
+    .report-grid,
+    .report-bottom-grid {
+        display: block !important;
+    }
+    .report-card {
+        break-inside: avoid;
+        margin-bottom: 12px;
+        border: 1px solid #ccc;
+        page-break-inside: avoid;
+    }
+
+    /* Map: fixed height so it renders */
+    .map-container { height: 200px !important; }
+
+    a { color: inherit !important; text-decoration: none !important; }
+
+    @page { margin: 15mm; }
 }

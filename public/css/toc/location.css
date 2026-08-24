@@ -107,6 +107,12 @@
     border-bottom: 1px solid #eee;
 }
 
+/* Speed panel overrides — inline maroon <th> styles take precedence */
+#speedPanel .panel-card th {
+    background: transparent;
+    border-bottom: none;
+}
+
 .panel-card td {
     padding: 9px 15px;
     font-size: .79rem;

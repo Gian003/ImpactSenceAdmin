@@ -29,8 +29,9 @@ class HelmetController extends Controller
     public function pair(Request $request): JsonResponse
     {
         $request->validate([
-            'device_code' => ['required', 'string'],
-            'pairing_key' => ['required', 'string'],
+            'device_code'      => ['required', 'string'],
+            'pairing_key'      => ['required', 'string'],
+            'sim_phone_number' => ['sometimes', 'nullable', 'string', 'max:20'],
         ]);
 
         $helmet = Helmet::where('device_code', $request->device_code)->first();
@@ -52,11 +53,17 @@ class HelmetController extends Controller
             ->where('id', '!=', $helmet->id)
             ->update(['rider_id' => null, 'is_active' => false, 'paired_at' => null]);
 
-        $helmet->update([
+        $update = [
             'rider_id'  => $request->user()->id,
             'is_active' => true,
             'paired_at' => now(),
-        ]);
+        ];
+
+        if ($request->filled('sim_phone_number')) {
+            $update['sim_phone_number'] = $request->sim_phone_number;
+        }
+
+        $helmet->update($update);
 
         return $this->apiResponse(true, 'Helmet paired successfully', $helmet->fresh());
     }

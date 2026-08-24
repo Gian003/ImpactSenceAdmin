@@ -8,6 +8,7 @@ use App\Events\PatrolDispatched;
 use App\Events\PatrolLocationUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Incident;
+use App\Services\EmergencyNotificationService;
 use App\Services\FcmService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ use Illuminate\Validation\Rule;
 class IncidentController extends Controller
 {
     // Rider phone app: report a crash detected by the helmet via Bluetooth
-    public function store(Request $request, FcmService $fcm): JsonResponse
+    public function store(Request $request, FcmService $fcm, EmergencyNotificationService $emergencyNotifier): JsonResponse
     {
         $data = $request->validate([
             'type'      => ['sometimes', 'string'],
@@ -53,6 +54,10 @@ class IncidentController extends Controller
             'Your incident has been reported. TOC has been alerted.',
             ['incident_id' => (string) $incident->id, 'type' => 'crash_confirmed']
         );
+
+        // SMS (Semaphore) + voice call (Twilio TTS) to the rider's emergency
+        // contact — non-fatal, see EmergencyNotificationService.
+        $emergencyNotifier->notifyEmergencyContact($incident);
 
         return $this->apiResponse(true, 'Incident reported', $incident, 201);
     }
@@ -164,5 +169,28 @@ class IncidentController extends Controller
         }
 
         return $this->apiResponse(true, 'Status updated', $incident->fresh());
+    }
+
+    // Rider: cancel a pending incident (false alarm)
+    public function cancelIncident(Request $request, Incident $incident): JsonResponse
+    {
+        if ($incident->rider_id !== $request->user()->id) {
+            return $this->apiResponse(false, 'Unauthorized', null, 403);
+        }
+
+        if ($incident->status !== 'pending') {
+            return $this->apiResponse(false, 'This incident can no longer be cancelled.', null, 422);
+        }
+
+        $incident->update(['status' => 'false_alarm']);
+        $incident->load(['rider', 'patrolUnit']);
+
+        try {
+            broadcast(new IncidentStatusUpdated($incident));
+        } catch (\Throwable $e) {
+            Log::warning('Pusher broadcast failed (cancelIncident)', ['error' => $e->getMessage()]);
+        }
+
+        return $this->apiResponse(true, 'Incident cancelled — marked as false alarm.');
     }
 }

@@ -44,4 +44,15 @@ return [
         'key' => env('GOOGLE_MAPS_API_KEY'),
     ],
 
+    'semaphore' => [
+        'api_key'     => env('SEMAPHORE_API_KEY'),
+        'sender_name' => env('SEMAPHORE_SENDER_NAME'), // must be pre-registered with Semaphore, or omit to use their default
+    ],
+
+    'twilio' => [
+        'account_sid' => env('TWILIO_ACCOUNT_SID'),
+        'auth_token'  => env('TWILIO_AUTH_TOKEN'),
+        'from_number' => env('TWILIO_FROM_NUMBER'),
+    ],
+
 ];

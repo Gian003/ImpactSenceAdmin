@@ -1,0 +1,147 @@
+/* ── ImpactSense Admin — PNP Urdaneta Maroon Theme ─────────── */
+:root {
+    --admin-maroon      : #7B1A2E;
+    --admin-maroon-dark : #5C1020;
+    --admin-maroon-glow : rgba(123, 26, 46, .18);
+    --admin-bg          : #F2F0F0;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 240px;
+    min-height: 100vh;
+    background: var(--admin-maroon);
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+/* Nav links */
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    color: rgba(255, 255, 255, .72);
+    font-size: .875rem;
+    font-weight: 500;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: background .15s, color .15s, border-color .15s;
+}
+.nav-link:hover {
+    background: rgba(255, 255, 255, .10);
+    color: #fff;
+}
+.nav-link.active {
+    background: rgba(255, 255, 255, .18);
+    color: #fff;
+    border-left-color: #F4C5D0;
+}
+
+/* Main content */
+.main-content {
+    flex: 1;
+    background: var(--admin-bg);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* Top bar */
+.topbar {
+    background: #fff;
+    border-bottom: 1px solid #ddd;
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+/* Stat cards */
+.stat-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 20px 22px;
+    border: 1px solid #e2e2e2;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.stat-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.stat-value { font-size: 1.6rem; font-weight: 700; color: #1e293b; line-height: 1; }
+.stat-label { font-size: .78rem; color: #64748b; margin-top: 2px; }
+
+/* Table */
+.admin-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+.admin-table th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--admin-maroon);
+    border-bottom: none;
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #fff;
+    font-weight: 600;
+}
+.admin-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #f0eded;
+    color: #334155;
+    vertical-align: middle;
+}
+.admin-table tr:last-child td { border-bottom: none; }
+.admin-table tr:hover td { background: #fdf5f6; }
+
+/* Status badges */
+.badge-pending    { background: #fef3c7; color: #92400e; }
+.badge-accepted   { background: #d1fae5; color: #065f46; }
+.badge-expired    { background: #f1f5f9; color: #64748b; }
+.badge-active     { background: #d1fae5; color: #065f46; }
+.badge-inactive   { background: #fee2e2; color: #991b1b; }
+.badge-toc        { background: #fce8ed; color: #7B1A2E; }
+.badge-inv        { background: #ede9fe; color: #4c1d95; }
+
+.status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: .72rem;
+    font-weight: 600;
+}
+
+/* Card wrapper */
+.card-panel {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #e2e2e2;
+    overflow: hidden;
+}
+.card-panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f0eded;
+    font-weight: 600;
+    font-size: .9rem;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.card-panel-body { padding: 20px; }
+
+/* Maroon link utility */
+.link-maroon { color: var(--admin-maroon); text-decoration: none; font-weight: 400; }
+.link-maroon:hover { color: var(--admin-maroon-dark); }

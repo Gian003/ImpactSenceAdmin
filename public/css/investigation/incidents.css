@@ -1,37 +1,90 @@
-/* Status badge pills — Bootstrap doesn't have outlined dark pills out of the box */
+/* ── Incidents / Incident-Report shared table styles ─────────── */
+
+/* Table wrapper */
+.incidents-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .83rem;
+}
+
+/* Header — maroon */
+.incidents-table thead tr {
+    background: #7B1A2E;
+}
+.incidents-table thead th {
+    padding: 11px 16px;
+    color: #fff;
+    font-weight: 700;
+    font-size: .78rem;
+    border: none;
+    white-space: nowrap;
+}
+
+/* Body rows */
+.incidents-table tbody tr {
+    border-bottom: 1px solid #f5eeef;
+    transition: background .12s;
+}
+.incidents-table tbody tr:last-child {
+    border-bottom: none;
+}
+.incidents-table tbody tr:hover {
+    background: #fdf5f6;
+}
+.incidents-table tbody td {
+    padding: 11px 16px;
+    color: #334155;
+    vertical-align: middle;
+}
+
+/* Status badge pills */
 .status-badge {
     display: inline-block;
     border-radius: 9999px;
     padding: .2rem .9rem;
-    font-size: .78rem;
-    font-weight: 500;
-    border: 1.5px solid;
-    background: transparent;
+    font-size: .72rem;
+    font-weight: 600;
     white-space: nowrap;
 }
 
 .status-active {
-    border-color: #374151;
-    color: #374151;
+    background: #fef3c7;
+    color: #92400e;
+    border: none;
 }
 
 .status-resolved {
-    border-color: #1b3d52;
-    color: #fff;
-    background: #1b3d52;
+    background: #d1fae5;
+    color: #065f46;
+    border: none;
 }
 
-/* Incident type — uppercase small label */
+/* Incident type chip */
 .incident-type {
-    font-size: .75rem;
-    font-weight: 600;
-    letter-spacing: .03em;
-    color: #1f2937;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 2px 9px;
+    border-radius: 5px;
 }
 
-/* Incident time — no-wrap */
+/* Incident time */
 .incident-time {
     white-space: nowrap;
     font-size: .8rem;
-    color: #4b5563;
+    color: #64748b;
+}
+
+/* Action link */
+.incident-action-link {
+    color: #7B1A2E;
+    font-weight: 600;
+    font-size: .8rem;
+    text-decoration: none;
+}
+.incident-action-link:hover {
+    color: #5C1020;
+    text-decoration: underline;
 }

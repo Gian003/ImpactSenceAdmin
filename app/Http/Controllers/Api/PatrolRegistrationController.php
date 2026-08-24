@@ -28,8 +28,12 @@ class PatrolRegistrationController extends Controller
 
         $registration = PatrolRegistration::create($data);
 
-        // Broadcast to TOC dashboard so they see the badge immediately
-        broadcast(new PatrolRegistrationSubmitted($registration));
+        // Broadcast to TOC dashboard so they see the badge immediately — non-fatal
+        try {
+            broadcast(new PatrolRegistrationSubmitted($registration));
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Pusher broadcast failed (PatrolRegistrationSubmitted)', ['error' => $e->getMessage()]);
+        }
 
         return $this->apiResponse(true,
             'Registration submitted. Please wait for TOC admin approval.',
