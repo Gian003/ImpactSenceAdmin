@@ -140,6 +140,112 @@
     </div>
 </div>
 
+{{-- Flash --}}
+@if(session('success'))
+<div class="alert alert-dismissible py-2 mb-3" role="alert"
+     style="background:#d1fae5; color:#065f46; border:1px solid #6ee7b7; font-size:.84rem; border-radius:8px;">
+    {{ session('success') }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+@endif
+@if($errors->any())
+<div class="alert alert-dismissible py-2 mb-3" role="alert"
+     style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; font-size:.84rem; border-radius:8px;">
+    {{ $errors->first() }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+@endif
+
+{{-- Register Device form --}}
+<h6 class="fw-bold mb-2" style="color:#1e293b; font-size:.88rem; text-transform:uppercase; letter-spacing:.05em;">
+    Register New Device
+</h6>
+<div class="dm-chart-card mb-4">
+    <div class="card-body p-4">
+        <form method="POST" action="{{ route('toc.helmet.store') }}">
+            @csrf
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label" style="font-size:.78rem; color:#475569; font-weight:600;">Device Code</label>
+                    <input type="text" name="device_code" class="form-control form-control-sm"
+                           placeholder="e.g. ITK-BLK4-GRP5-MDL1"
+                           style="border-color:#e8d5d9; font-size:.83rem; border-radius:7px; font-family:monospace;"
+                           value="{{ old('device_code') }}" required>
+                    <div style="font-size:.7rem; color:#94a3b8; margin-top:3px;">Printed on the physical device</div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" style="font-size:.78rem; color:#475569; font-weight:600;">Model</label>
+                    <input type="text" name="model" class="form-control form-control-sm"
+                           placeholder="e.g. ImpactSense Pro X1"
+                           style="border-color:#e8d5d9; font-size:.83rem; border-radius:7px;"
+                           value="{{ old('model') }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" style="font-size:.78rem; color:#475569; font-weight:600;">Firmware</label>
+                    <input type="text" name="firmware_version" class="form-control form-control-sm"
+                           placeholder="e.g. 2.0.1"
+                           style="border-color:#e8d5d9; font-size:.83rem; border-radius:7px;"
+                           value="{{ old('firmware_version') }}">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-sm text-white fw-semibold px-4 w-100"
+                            style="background:#7B1A2E; border-color:#7B1A2E; font-size:.82rem; border-radius:7px;">
+                        Register Device
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- Unlinked Devices (available for pairing) --}}
+@if(($unlinkedDevices ?? collect())->isNotEmpty())
+<h6 class="fw-bold mb-2" style="color:#1e293b; font-size:.88rem; text-transform:uppercase; letter-spacing:.05em;">
+    Unlinked Devices
+    <span style="font-size:.72rem; font-weight:500; color:#9ca3af; margin-left:6px; text-transform:none; letter-spacing:0;">Ready to pair via mobile app</span>
+</h6>
+<div class="dm-chart-card mb-4">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0" style="font-size:.83rem;">
+            <thead>
+                <tr>
+                    <th style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">Device Code</th>
+                    <th style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">Pairing Key</th>
+                    <th style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">Model</th>
+                    <th style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">Firmware</th>
+                    <th style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">Registered</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($unlinkedDevices as $dev)
+                <tr>
+                    <td style="padding:11px 16px; border-bottom:1px solid #f5eeef;">
+                        <span style="font-family:monospace; background:#f1f5f9; padding:2px 8px; border-radius:5px; font-size:.82rem; color:#1e293b;">
+                            {{ $dev->device_code }}
+                        </span>
+                    </td>
+                    <td style="padding:11px 16px; border-bottom:1px solid #f5eeef;">
+                        <span class="pairing-key-cell" style="display:inline-flex; align-items:center; gap:8px;">
+                            <span class="pk-value" style="font-family:monospace; background:#fce7f3; color:#7B1A2E; padding:2px 10px; border-radius:5px; font-size:.82rem; font-weight:700; letter-spacing:.08em;">
+                                {{ $dev->pairing_key }}
+                            </span>
+                            <button type="button" onclick="copyPk(this, '{{ $dev->pairing_key }}')"
+                                    style="background:none; border:none; cursor:pointer; color:#9ca3af; font-size:.72rem; padding:0;" title="Copy">
+                                Copy
+                            </button>
+                        </span>
+                    </td>
+                    <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $dev->model ?? '—' }}</td>
+                    <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef; font-family:monospace; font-size:.8rem;">{{ $dev->firmware_version ?? '—' }}</td>
+                    <td style="padding:11px 16px; color:#64748b; border-bottom:1px solid #f5eeef; font-size:.8rem;">{{ $dev->created_at->format('M d, Y') }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
+
 {{-- Rider table --}}
 <h6 class="fw-bold mb-2" style="color:#1e293b; font-size:.88rem; text-transform:uppercase; letter-spacing:.05em;">
     Rider — Device Registry
@@ -195,6 +301,15 @@
 
 @push('scripts')
 <script>
+function copyPk(btn, key) {
+    navigator.clipboard.writeText(key).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.style.color = '#2a7c5b';
+        setTimeout(() => { btn.textContent = orig; btn.style.color = '#9ca3af'; }, 1500);
+    });
+}
+
 const labels = @json($chartLabels);
 
 // ── Registrations trend (riders + devices) ───────────────────────────────────

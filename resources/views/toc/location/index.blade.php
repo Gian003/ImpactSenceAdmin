@@ -17,13 +17,11 @@
 @endif
 
 {{-- ACCIDENT ALERT CARDS (real DB incidents) --}}
-@if(($pendingIncidents ?? collect())->isEmpty())
-<div class="alert mb-3" style="background:#f0f7fa; border:1.5px solid #b8cdd9; font-size:.84rem;">
+<div id="no-incidents-banner" class="alert mb-3" style="background:#f0f7fa; border:1.5px solid #b8cdd9; font-size:.84rem; {{ ($pendingIncidents ?? collect())->isEmpty() ? '' : 'display:none;' }}">
     No active incidents at this time.
 </div>
-@else
-<div class="row g-3 mb-3">
-    @foreach($pendingIncidents as $inc)
+<div id="incident-cards-row" class="row g-3 mb-3" style="{{ ($pendingIncidents ?? collect())->isEmpty() ? 'display:none;' : '' }}">
+    @foreach($pendingIncidents ?? [] as $inc)
     <div class="col-md-6">
         <div class="p-3 position-relative rounded-3 border border-2"
              style="background:#fde8e8; border-color:#d97070 !important;">
@@ -74,7 +72,6 @@
     </div>
     @endforeach
 </div>
-@endif
 
 {{-- MAP + OVERLAYS --}}
 <div class="map-wrap">
@@ -444,4 +441,99 @@ function initMap() {
 <script src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}&libraries=visualization&callback=initMap"
         async defer
         onerror="document.getElementById('map').innerHTML = '&lt;div style=&quot;padding:20px;color:#b91c1c;font-size:.85rem;&quot;&gt;Failed to load Google Maps. Check your internet connection or API key.&lt;/div&gt;'"></script>
+
+<script>
+// Real-time incident alert — fires when the IoT device posts a crash report
+// and the backend broadcasts it via Pusher (channel: incidents, event: incident.reported).
+// Adds a new alert card at the top of the page and a red dot on the map without refresh.
+(function () {
+    if (!window.pusherClient) return;
+
+    // Web Audio API alert tone — three short beeps to grab the operator's attention.
+    function playAlertTone() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            [0, 0.25, 0.5].forEach(function (delay) {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'square';
+                osc.frequency.value = 880;
+                gain.gain.setValueAtTime(0.3, ctx.currentTime + delay);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
+                osc.start(ctx.currentTime + delay);
+                osc.stop(ctx.currentTime + delay + 0.18);
+            });
+        } catch (e) {}
+    }
+
+    function addIncidentCard(data) {
+        const row    = document.getElementById('incident-cards-row');
+        const banner = document.getElementById('no-incidents-banner');
+        if (!row) return;
+
+        banner.style.display = 'none';
+        row.style.display    = '';
+
+        const riderName = data.rider?.full_name  ?? 'Unknown rider';
+        const phone     = data.rider?.phone_number ?? '—';
+        const address   = data.address ?? 'Location unavailable';
+
+        const col = document.createElement('div');
+        col.className = 'col-md-6';
+        col.innerHTML = `
+            <div class="p-3 position-relative rounded-3 border border-2"
+                 style="background:#fde8e8; border-color:#d97070 !important;">
+                <span class="position-absolute rounded-circle d-flex align-items-center justify-content-center fw-black text-white"
+                      style="top:12px; right:12px; width:28px; height:28px; background:#1a1a1a; font-size:1rem;">!</span>
+                <h6 class="fw-bold mb-2">Accident Alert!
+                    <span class="badge ms-2" style="font-size:.7rem; background:#e53e3e;">PENDING</span>
+                    <span class="badge ms-1" style="font-size:.7rem; background:#7B1A2E;">LIVE</span>
+                </h6>
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <div class="d-flex align-items-center gap-1 mb-1 fw-bold" style="font-size:.75rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            ${riderName}
+                        </div>
+                        <div class="ps-3 text-dark" style="font-size:.8rem;">${phone}</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex align-items-center gap-1 mb-1 fw-bold" style="font-size:.75rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+                            Current Location
+                        </div>
+                        <div class="ps-3 lh-sm text-dark" style="font-size:.8rem;">${address}</div>
+                    </div>
+                </div>
+                <div class="mt-1" style="font-size:.78rem; color:#7B1A2E; font-weight:600;">
+                    Severity: ${data.severity ?? '—'} — refresh page to dispatch a patrol unit
+                </div>
+            </div>`;
+
+        row.prepend(col);
+
+        // Drop a new red dot on the map (if Google Maps has loaded)
+        const lat = parseFloat(data.latitude);
+        const lng = parseFloat(data.longitude);
+        if (!isNaN(lat) && !isNaN(lng) && window.google?.maps && map) {
+            new google.maps.Marker({
+                position: { lat, lng },
+                map,
+                icon: { url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png', scaledSize: new google.maps.Size(32, 32) },
+                title: riderName,
+                animation: google.maps.Animation.DROP,
+            });
+            map.panTo({ lat, lng });
+        }
+    }
+
+    window.pusherClient.subscribe('incidents')
+        .bind('incident.reported', function (data) {
+            playAlertTone();
+            addIncidentCard(data);
+        });
+}());
+</script>
 @endpush

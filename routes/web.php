@@ -347,17 +347,32 @@ Route::prefix('toc')
             )->values()->all();
 
             return view('toc.helmet.index', [
-                'riders'        => User::with('helmet')->where('role', 'rider')->latest()->get(),
-                'totalRiders'   => User::where('role', 'rider')->count(),
-                'totalDevices'  => Helmet::count(),
-                'activeDevices' => Helmet::where('is_active', true)->count(),
-                'pairedDevices' => Helmet::whereNotNull('paired_at')->count(),
-                'chartLabels'   => $labels,
-                'trendRiders'   => $trend(User::where('role', 'rider')),
-                'trendDevices'  => $trend(Helmet::query()),
-                'trendIncidents'=> $trend(Incident::query()),
+                'riders'          => User::with('helmet')->where('role', 'rider')->latest()->get(),
+                'unlinkedDevices' => Helmet::whereNull('rider_id')->latest()->get(),
+                'totalRiders'     => User::where('role', 'rider')->count(),
+                'totalDevices'    => Helmet::count(),
+                'activeDevices'   => Helmet::where('is_active', true)->count(),
+                'pairedDevices'   => Helmet::whereNotNull('paired_at')->count(),
+                'chartLabels'     => $labels,
+                'trendRiders'     => $trend(User::where('role', 'rider')),
+                'trendDevices'    => $trend(Helmet::query()),
+                'trendIncidents'  => $trend(Incident::query()),
             ]);
         })->name('helmet.index');
+
+        // Register a new physical device (TOC admin)
+        Route::post('/helmet', function (Request $request) {
+            $data = $request->validate([
+                'device_code'      => ['required', 'string', 'max:50', 'unique:helmets,device_code'],
+                'model'            => ['nullable', 'string', 'max:100'],
+                'firmware_version' => ['nullable', 'string', 'max:20'],
+            ]);
+
+            Helmet::create($data);
+
+            return redirect()->route('toc.helmet.index')
+                ->with('success', 'Device registered. Share the auto-generated pairing key with the rider.');
+        })->name('helmet.store');
 
         // ── Patrol registrations ──────────────────────────────────────────────
         Route::get('/patrol-registrations', function () {
