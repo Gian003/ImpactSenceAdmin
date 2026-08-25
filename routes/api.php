@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
 // ── HEALTH CHECK ──────────────────────────────────────────────────────────────
-Route::get('health', fn () => response()->json(['status' => 'up']));
+Route::get('health', fn() => response()->json(['status' => 'up']));
 
 // ── BROADCASTING AUTH (mobile apps, Sanctum bearer token) ────────────────────
 // Registers POST /api/broadcasting/auth (this file is already loaded under
@@ -47,14 +47,9 @@ Route::prefix('rider')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout',    [RiderAuthController::class, 'logout']);
         Route::get('profile',    [RiderAuthController::class, 'profile']);
-<<<<<<< HEAD
-        Route::patch('profile',  [RiderAuthController::class, 'updateProfile']);
-        Route::post('fcm-token', [RiderAuthController::class, 'updateFcmToken']);
-=======
         Route::patch('profile',          [RiderAuthController::class, 'updateProfile']);
         Route::post('change-password',   [RiderAuthController::class, 'changePassword']);
         Route::post('fcm-token',         [RiderAuthController::class, 'updateFcmToken']);
->>>>>>> 262627993386829a4cdae02c5640161453529626
 
         // Device pairing
         Route::get('device', [RiderDeviceController::class, 'show']);
@@ -84,7 +79,7 @@ Route::prefix('patrol')->group(function () {
 
     // Public
     Route::post('login',           [PatrolAuthController::class, 'login']);
-    Route::post('register-request',[PatrolRegistrationController::class, 'store']);
+    Route::post('register-request', [PatrolRegistrationController::class, 'store']);
     Route::post('registration-status', [PatrolRegistrationController::class, 'status']);
 
     // Authenticated
