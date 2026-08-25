@@ -17,7 +17,7 @@ use Illuminate\Validation\Rule;
 
 class IncidentController extends Controller
 {
-    // Rider phone app: report a crash detected by the helmet via Bluetooth
+    // Rider phone app: report a crash detected by the device via Bluetooth
     public function store(Request $request, FcmService $fcm, EmergencyNotificationService $emergencyNotifier): JsonResponse
     {
         $data = $request->validate([
@@ -29,16 +29,16 @@ class IncidentController extends Controller
         ]);
 
         $rider  = $request->user();
-        $helmet = $rider->helmet;
+        $device = $rider->device;
 
         $incident = Incident::create([
             ...$data,
             'rider_id'  => $rider->id,
-            'helmet_id' => $helmet?->id,
+            'device_id' => $device?->id,
             'status'    => 'pending',
         ]);
 
-        $incident->load(['rider', 'helmet']);
+        $incident->load(['rider', 'device']);
 
         // Broadcast to TOC dashboard — non-fatal if Pusher is not configured
         try {
@@ -82,7 +82,7 @@ class IncidentController extends Controller
                 $q->where('patrol_unit_id', $request->user()->id)
                   ->orWhere('status', 'pending');
             })
-            ->with('rider:id,full_name,phone_number', 'helmet:id,device_code,model')
+            ->with('rider:id,full_name,phone_number', 'device:id,device_code,model')
             ->latest()
             ->get();
 

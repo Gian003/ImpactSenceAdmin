@@ -23,7 +23,7 @@
 
 <p class="text-muted mb-4" style="font-size:.85rem; max-width:640px; color:#475569 !important;">
     Define a posted speed limit for a street or barangay. Speed samples collected from paired
-    helmets within the zone's radius are compared against the limit — areas where riders average
+    devices within the zone's radius are compared against the limit — areas where riders average
     above it are flagged on the TOC dashboard.
 </p>
 

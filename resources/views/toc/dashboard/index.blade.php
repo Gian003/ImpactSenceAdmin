@@ -108,7 +108,7 @@
 {{-- RECENT REGISTERED RIDERS --}}
 <div class="d-flex align-items-center justify-content-between mb-2">
     <h6 class="fw-bold mb-0" style="color:#1e293b;">Recent Registered Riders</h6>
-    <a href="{{ route('toc.helmet.index') }}" class="text-decoration-none"
+    <a href="{{ route('toc.devices.index') }}" class="text-decoration-none"
        style="font-size:.78rem; color:#7B1A2E; font-weight:500;">View All</a>
 </div>
 <div class="card border-0 rounded-3 overflow-hidden" style="border: 1px solid #e8d5d9 !important;">
@@ -125,7 +125,7 @@
             <tbody>
                 @forelse($recentRiders ?? [] as $rider)
                 <tr>
-                    <td style="padding:11px 16px; color:#1e293b; border-bottom:1px solid #f5eeef; font-family:monospace; font-size:.8rem;">{{ $rider->helmet?->device_code ?? 'No device' }}</td>
+                    <td style="padding:11px 16px; color:#1e293b; border-bottom:1px solid #f5eeef; font-family:monospace; font-size:.8rem;">{{ $rider->device?->device_code ?? 'No device' }}</td>
                     <td style="padding:11px 16px; color:#1e293b; border-bottom:1px solid #f5eeef; font-weight:500;">{{ $rider->full_name }}</td>
                     <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $rider->date_of_birth ? now()->diffInYears($rider->date_of_birth) : 'N/A' }}</td>
                     <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $rider->phone_number ?? 'N/A' }}</td>

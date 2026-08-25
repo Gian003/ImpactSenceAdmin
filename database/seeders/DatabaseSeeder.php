@@ -55,7 +55,7 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // ── Demo dataset (riders, helmets, patrol units, incidents) ───────────
+        // ── Demo dataset (riders, devices, patrol units, incidents) ───────────
         $this->call(DemoDataSeeder::class);
     }
 }

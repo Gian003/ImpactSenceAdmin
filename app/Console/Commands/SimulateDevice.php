@@ -8,10 +8,10 @@ use Illuminate\Support\Facades\Http;
 class SimulateDevice extends Command
 {
     protected $signature = 'simulate:device
-        {--device=IMP-001 : device_code of the paired helmet}
+        {--device=IMP-001 : device_code of the paired device}
         {--impact=HIGH : Impact level to simulate (LOW, MODERATE, HIGH, CRITICAL)}';
 
-    protected $description = 'Simulate an ESP32 helmet device posting a crash incident to the backend';
+    protected $description = 'Simulate an ESP32 device posting a crash incident to the backend';
 
     private const BASE_URL = 'http://192.168.1.4:8000';
 
@@ -68,9 +68,9 @@ class SimulateDevice extends Command
         $this->error('Backend rejected the request.');
 
         if ($response->status() === 404) {
-            $this->warn("No helmet with device_code '{$deviceCode}' is registered. Create one first — see setup instructions.");
+            $this->warn("No device with device_code '{$deviceCode}' is registered. Create one first — see setup instructions.");
         } elseif ($response->status() === 422) {
-            $this->warn("Helmet '{$deviceCode}' exists but has no paired rider yet.");
+            $this->warn("Device '{$deviceCode}' exists but has no paired rider yet.");
         }
 
         return self::FAILURE;

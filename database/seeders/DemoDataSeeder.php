@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\Helmet;
+use App\Models\Device;
 use App\Models\Incident;
 use App\Models\PatrolRegistration;
 use App\Models\PatrolUnit;
@@ -54,8 +54,8 @@ class DemoDataSeeder extends Seeder
         ];
 
         $riderIds    = [];
-        $helmetIds   = [];
-        $helmetModels = ['ImpactSense Pro X1', 'ImpactSense Shield V2', 'ImpactSense Elite S3', 'ImpactSense Guard M1'];
+        $deviceIds   = [];
+        $deviceModels = ['ImpactSense Pro X1', 'ImpactSense Shield V2', 'ImpactSense Elite S3', 'ImpactSense Guard M1'];
 
         foreach ($ridersData as $i => $r) {
             $rider = User::updateOrCreate(
@@ -72,20 +72,20 @@ class DemoDataSeeder extends Seeder
                 ]);
             }
 
-            // Helmet
+            // Device
             $deviceCode = 'ITK-' . strtoupper(substr(md5($rider->email), 0, 4)) . '-GRP' . ($i + 1) . '-MDL1';
-            $helmet = Helmet::updateOrCreate(
+            $device = Device::updateOrCreate(
                 ['device_code' => $deviceCode],
                 [
                     'rider_id'         => $rider->id,
-                    'model'            => $helmetModels[$i % count($helmetModels)],
+                    'model'            => $deviceModels[$i % count($deviceModels)],
                     'firmware_version' => '2.' . ($i % 5) . '.1',
                     'battery_level'    => rand(55, 98),
                     'is_active'        => true,
                     'paired_at'        => now()->subDays(rand(30, 365)),
                 ]
             );
-            $helmetIds[$rider->id] = $helmet->id;
+            $deviceIds[$rider->id] = $device->id;
         }
 
         // ── Incidents ────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ class DemoDataSeeder extends Seeder
         if (Incident::where('address', 'like', '%, Urdaneta City')->count() >= 10) {
             $this->command->info('Demo incidents already exist — skipping incident generation.');
         } else {
-            $this->generateIncidents($riderIds, $helmetIds, $patrolIds);
+            $this->generateIncidents($riderIds, $deviceIds, $patrolIds);
         }
 
         // ── Pending Patrol Registrations ──────────────────────────────────────
@@ -113,7 +113,7 @@ class DemoDataSeeder extends Seeder
         $this->command->info('Demo data seeded successfully.');
     }
 
-    private function generateIncidents(array $riderIds, array $helmetIds, array $patrolIds): void
+    private function generateIncidents(array $riderIds, array $deviceIds, array $patrolIds): void
     {
         // Real Urdaneta City barangay locations with coordinates
         // Format: [address, lat, lng, weight (higher = more incidents there)]
@@ -208,7 +208,7 @@ class DemoDataSeeder extends Seeder
 
                 $rows[] = [
                     'rider_id'       => $riderId,
-                    'helmet_id'      => $helmetIds[$riderId] ?? null,
+                    'device_id'      => $deviceIds[$riderId] ?? null,
                     'patrol_unit_id' => $patrolId,
                     'type'           => $type,
                     'latitude'       => $loc[1] + (rand(-30, 30) / 10000),

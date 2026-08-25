@@ -3,7 +3,7 @@
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\PatrolRegistrationController;
 use App\Http\Controllers\Api\EmergencyContactController;
-use App\Http\Controllers\Api\HelmetController;
+use App\Http\Controllers\Api\RiderDeviceController;
 use App\Http\Controllers\Api\IncidentController;
 use App\Http\Controllers\Api\PatrolAuthController;
 use App\Http\Controllers\Api\RiderAuthController;
@@ -41,7 +41,7 @@ Route::prefix('rider')->group(function () {
     Route::post('otp/verify', [RiderAuthController::class, 'otpVerify']);
 
     // IoT device status push (device_code used instead of token)
-    Route::post('helmet/status', [HelmetController::class, 'updateStatus']);
+    Route::post('device/status', [RiderDeviceController::class, 'updateStatus']);
 
     // Authenticated
     Route::middleware('auth:sanctum')->group(function () {
@@ -51,16 +51,16 @@ Route::prefix('rider')->group(function () {
         Route::post('change-password',   [RiderAuthController::class, 'changePassword']);
         Route::post('fcm-token',         [RiderAuthController::class, 'updateFcmToken']);
 
-        // Helmet pairing
-        Route::get('helmet', [HelmetController::class, 'show']);
+        // Device pairing
+        Route::get('device', [RiderDeviceController::class, 'show']);
 
         // Rate-limited: pairing_key is the real secret gating this, but a slow
         // brute-force is still worth blocking outright rather than relying on
         // key entropy alone.
-        Route::post('helmet/pair', [HelmetController::class, 'pair'])
+        Route::post('device/pair', [RiderDeviceController::class, 'pair'])
             ->middleware('throttle:5,1');
 
-        Route::delete('helmet/pair', [HelmetController::class, 'unpair']);
+        Route::delete('device/pair', [RiderDeviceController::class, 'unpair']);
 
         // Incidents
         Route::get('incidents',                          [IncidentController::class, 'index']);

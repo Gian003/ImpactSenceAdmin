@@ -72,7 +72,7 @@
                 </div>
                 <div>
                     <div class="feature-title">Accident Detection</div>
-                    <div class="feature-desc">Automatic crash detection via smart helmets with instant alert dispatch.</div>
+                    <div class="feature-desc">Automatic crash detection via the ImpactSense device with instant alert dispatch.</div>
                 </div>
             </div>
 

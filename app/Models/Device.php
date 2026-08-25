@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
-class Helmet extends Model
+class Device extends Model
 {
     use HasFactory;
 
@@ -29,9 +29,9 @@ class Helmet extends Model
     {
         parent::boot();
 
-        static::creating(function (Helmet $helmet) {
-            if (empty($helmet->pairing_key)) {
-                $helmet->pairing_key = strtoupper(Str::random(8));
+        static::creating(function (Device $device) {
+            if (empty($device->pairing_key)) {
+                $device->pairing_key = strtoupper(Str::random(8));
             }
         });
     }

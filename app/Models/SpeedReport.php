@@ -11,7 +11,7 @@ class SpeedReport extends Model
     use HasFactory;
 
     protected $fillable = [
-        'helmet_id',
+        'device_id',
         'latitude',
         'longitude',
         'speed_kph',
@@ -25,8 +25,8 @@ class SpeedReport extends Model
         ];
     }
 
-    public function helmet(): BelongsTo
+    public function device(): BelongsTo
     {
-        return $this->belongsTo(Helmet::class);
+        return $this->belongsTo(Device::class);
     }
 }

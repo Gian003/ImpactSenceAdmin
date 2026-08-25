@@ -3,26 +3,26 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Helmet;
+use App\Models\Device;
 use App\Models\SpeedReport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class HelmetController extends Controller
+class RiderDeviceController extends Controller
 {
-    // Rider: get their paired helmet
+    // Rider: get their paired device
     public function show(Request $request): JsonResponse
     {
-        $helmet = $request->user()->helmet;
+        $device = $request->user()->device;
 
-        if (! $helmet) {
-            return $this->apiResponse(false, 'No helmet paired', null, 404);
+        if (! $device) {
+            return $this->apiResponse(false, 'No device paired', null, 404);
         }
 
-        return $this->apiResponse(true, 'Helmet retrieved', $helmet);
+        return $this->apiResponse(true, 'Device retrieved', $device);
     }
 
-    // Rider: pair a helmet by device code + its secret pairing key.
+    // Rider: pair a device by device code + its secret pairing key.
     // device_code is public (like a serial number) - pairing_key is the actual
     // secret that must match, so someone guessing/enumerating device codes
     // can't hijack a device they don't physically possess.
@@ -34,23 +34,23 @@ class HelmetController extends Controller
             'sim_phone_number' => ['sometimes', 'nullable', 'string', 'max:20'],
         ]);
 
-        $helmet = Helmet::where('device_code', $request->device_code)->first();
+        $device = Device::where('device_code', $request->device_code)->first();
 
-        if (! $helmet) {
+        if (! $device) {
             return $this->apiResponse(false, 'Device not found', null, 404);
         }
 
-        if (strtoupper($request->pairing_key) !== strtoupper($helmet->pairing_key)) {
+        if (strtoupper($request->pairing_key) !== strtoupper($device->pairing_key)) {
             return $this->apiResponse(false, 'Invalid pairing key', null, 422);
         }
 
-        if ($helmet->rider_id !== null && $helmet->rider_id !== $request->user()->id) {
+        if ($device->rider_id !== null && $device->rider_id !== $request->user()->id) {
             return $this->apiResponse(false, 'Device is already paired to another rider', null, 409);
         }
 
-        // Unpair any helmet previously assigned to this rider
-        Helmet::where('rider_id', $request->user()->id)
-            ->where('id', '!=', $helmet->id)
+        // Unpair any device previously assigned to this rider
+        Device::where('rider_id', $request->user()->id)
+            ->where('id', '!=', $device->id)
             ->update(['rider_id' => null, 'is_active' => false, 'paired_at' => null]);
 
         $update = [
@@ -63,27 +63,27 @@ class HelmetController extends Controller
             $update['sim_phone_number'] = $request->sim_phone_number;
         }
 
-        $helmet->update($update);
+        $device->update($update);
 
-        return $this->apiResponse(true, 'Helmet paired successfully', $helmet->fresh());
+        return $this->apiResponse(true, 'Device paired successfully', $device->fresh());
     }
 
-    // Rider: unpair their helmet
+    // Rider: unpair their device
     public function unpair(Request $request): JsonResponse
     {
-        $helmet = $request->user()->helmet;
+        $device = $request->user()->device;
 
-        if (! $helmet) {
-            return $this->apiResponse(false, 'No helmet paired', null, 404);
+        if (! $device) {
+            return $this->apiResponse(false, 'No device paired', null, 404);
         }
 
-        $helmet->update([
+        $device->update([
             'rider_id'  => null,
             'is_active' => false,
             'paired_at' => null,
         ]);
 
-        return $this->apiResponse(true, 'Helmet unpaired');
+        return $this->apiResponse(true, 'Device unpaired');
     }
 
     // IoT device: push battery level + active status, piggybacking the same
@@ -100,23 +100,23 @@ class HelmetController extends Controller
             'speed_kph'     => ['sometimes', 'integer', 'min:0'],
         ]);
 
-        $helmet = Helmet::where('device_code', $data['device_code'])->first();
+        $device = Device::where('device_code', $data['device_code'])->first();
 
-        if (! $helmet) {
+        if (! $device) {
             return $this->apiResponse(false, 'Device not found', null, 404);
         }
 
-        $helmet->update($request->only('battery_level', 'is_active'));
+        $device->update($request->only('battery_level', 'is_active'));
 
         if (isset($data['latitude'], $data['longitude'], $data['speed_kph'])) {
             SpeedReport::create([
-                'helmet_id'  => $helmet->id,
+                'device_id'  => $device->id,
                 'latitude'   => $data['latitude'],
                 'longitude'  => $data['longitude'],
                 'speed_kph'  => $data['speed_kph'],
             ]);
         }
 
-        return $this->apiResponse(true, 'Status updated', $helmet->fresh());
+        return $this->apiResponse(true, 'Status updated', $device->fresh());
     }
 }

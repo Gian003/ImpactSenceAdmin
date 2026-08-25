@@ -38,9 +38,9 @@ class User extends Authenticatable
         ];
     }
 
-    public function helmet(): HasOne
+    public function device(): HasOne
     {
-        return $this->hasOne(Helmet::class, 'rider_id');
+        return $this->hasOne(Device::class, 'rider_id');
     }
 
     public function incidents(): HasMany

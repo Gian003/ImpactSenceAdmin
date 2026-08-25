@@ -13,7 +13,7 @@ class Incident extends Model
 
     protected $fillable = [
         'rider_id',
-        'helmet_id',
+        'device_id',
         'patrol_unit_id',
         'type',
         'latitude',
@@ -41,9 +41,9 @@ class Incident extends Model
         return $this->belongsTo(User::class, 'rider_id');
     }
 
-    public function helmet(): BelongsTo
+    public function device(): BelongsTo
     {
-        return $this->belongsTo(Helmet::class);
+        return $this->belongsTo(Device::class);
     }
 
     public function patrolUnit(): BelongsTo

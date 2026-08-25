@@ -21,9 +21,9 @@
                 @forelse($riders ?? [] as $rider)
                 <tr>
                     <td style="padding:11px 16px; color:#334155; border-bottom:1px solid #f5eeef;">
-                        @if($rider->helmet)
+                        @if($rider->device)
                             <span style="font-family:monospace; background:#f1f5f9; padding:2px 8px; border-radius:5px; font-size:.82rem;">
-                                {{ $rider->helmet->device_code }}
+                                {{ $rider->device->device_code }}
                             </span>
                         @else
                             <span style="color:#94a3b8;">No device</span>

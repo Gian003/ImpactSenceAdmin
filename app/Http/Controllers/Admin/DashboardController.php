@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Helmet;
+use App\Models\Device;
 use App\Models\Incident;
 use App\Models\InvestigationOfficer;
 use App\Models\PatrolUnit;
@@ -20,7 +20,7 @@ class DashboardController extends Controller
             'pending'          => Incident::where('status', 'pending')->count(),
             'resolved'         => Incident::where('status', 'resolved')->count(),
             'total_riders'     => User::where('role', 'rider')->count(),
-            'active_devices'   => Helmet::where('is_active', true)->count(),
+            'active_devices'   => Device::where('is_active', true)->count(),
             'patrol_units'     => PatrolUnit::count(),
             'toc_officers'     => TocPersonnel::count(),
             'inv_officers'     => InvestigationOfficer::count(),

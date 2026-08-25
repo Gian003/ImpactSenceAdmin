@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\Helmet;
+use App\Models\Device;
 use Illuminate\Database\Seeder;
 
 class TestDeviceSeeder extends Seeder
@@ -19,7 +19,7 @@ class TestDeviceSeeder extends Seeder
         ];
 
         foreach ($devices as $d) {
-            $helmet = Helmet::updateOrCreate(
+            $device = Device::updateOrCreate(
                 ['device_code' => $d['device_code']],
                 [
                     'model'            => $d['model'],
@@ -32,8 +32,8 @@ class TestDeviceSeeder extends Seeder
             );
 
             // Force the known pairing key (bypassing fillable guard)
-            $helmet->pairing_key = $d['pairing_key'];
-            $helmet->saveQuietly();
+            $device->pairing_key = $d['pairing_key'];
+            $device->saveQuietly();
         }
 
         $this->command->info('3 test devices seeded (pairing keys: TESTKEY1, TESTKEY2, TESTKEY3).');

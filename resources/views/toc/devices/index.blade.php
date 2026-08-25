@@ -162,7 +162,7 @@
 </h6>
 <div class="dm-chart-card mb-4">
     <div class="card-body p-4">
-        <form method="POST" action="{{ route('toc.helmet.store') }}">
+        <form method="POST" action="{{ route('toc.devices.store') }}">
             @csrf
             <div class="row g-3 align-items-end">
                 <div class="col-md-4">
@@ -266,9 +266,9 @@
                 @forelse($riders as $rider)
                 <tr>
                     <td style="padding:11px 16px; color:#334155; border-bottom:1px solid #f5eeef;">
-                        @if($rider->helmet)
+                        @if($rider->device)
                             <span style="font-family:monospace; background:#f1f5f9; padding:2px 8px; border-radius:5px; font-size:.82rem;">
-                                {{ $rider->helmet->device_code }}
+                                {{ $rider->device->device_code }}
                             </span>
                         @else
                             <span style="color:#94a3b8;">No device</span>
@@ -278,9 +278,9 @@
                     <td style="padding:11px 16px; color:#64748b; border-bottom:1px solid #f5eeef;">{{ $rider->date_of_birth ? now()->diffInYears($rider->date_of_birth) : 'N/A' }}</td>
                     <td style="padding:11px 16px; color:#64748b; border-bottom:1px solid #f5eeef;">{{ $rider->phone_number ?? 'N/A' }}</td>
                     <td style="padding:11px 16px; border-bottom:1px solid #f5eeef;">
-                        @if($rider->helmet && $rider->helmet->is_active)
+                        @if($rider->device && $rider->device->is_active)
                             <span style="display:inline-block; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:600; background:#d1fae5; color:#065f46;">Active</span>
-                        @elseif($rider->helmet)
+                        @elseif($rider->device)
                             <span style="display:inline-block; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:600; background:#fee2e2; color:#991b1b;">Inactive</span>
                         @else
                             <span style="display:inline-block; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:600; background:#f1f5f9; color:#64748b;">Unpaired</span>

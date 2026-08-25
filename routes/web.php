@@ -4,7 +4,7 @@ use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\InvitationController;
 use App\Http\Controllers\Admin\UserManagementController;
-use App\Models\Helmet;
+use App\Models\Device;
 use App\Models\Incident;
 use App\Models\PatrolUnit;
 use App\Models\User;
@@ -18,7 +18,7 @@ Route::get('/', function () {
     return view('welcome', [
         'statRiders'  => \App\Models\User::where('role', 'rider')->count(),
         'statAccidents' => \App\Models\Incident::count(),
-        'statDevices' => \App\Models\Helmet::where('is_active', true)->count(),
+        'statDevices' => \App\Models\Device::where('is_active', true)->count(),
     ]);
 });
 
@@ -172,9 +172,9 @@ Route::prefix('toc')
             return view('toc.dashboard.index', [
                 'totalRiders'    => User::where('role', 'rider')->count(),
                 'totalAccidents' => Incident::count(),
-                'activeDevices'  => Helmet::where('is_active', true)->count(),
+                'activeDevices'  => Device::where('is_active', true)->count(),
                 'recentIncidents' => Incident::with('rider')->latest()->limit(5)->get(),
-                'recentRiders'    => User::with('helmet')->where('role', 'rider')->latest()->limit(5)->get(),
+                'recentRiders'    => User::with('device')->where('role', 'rider')->latest()->limit(5)->get(),
             ]);
         })->name('dashboard');
 
@@ -327,7 +327,7 @@ Route::prefix('toc')
             return back()->with('dispatched', "Patrol {$patrol->full_name} dispatched.");
         })->name('incidents.dispatch');
 
-        Route::get('/helmet', function () {
+        Route::get('/devices', function () {
             $days    = 7;
             $trend   = function ($query, $col = 'created_at') use ($days) {
                 $raw = $query
@@ -346,33 +346,33 @@ Route::prefix('toc')
                 fn($i) => now()->subDays($i)->format('D')
             )->values()->all();
 
-            return view('toc.helmet.index', [
-                'riders'          => User::with('helmet')->where('role', 'rider')->latest()->get(),
-                'unlinkedDevices' => Helmet::whereNull('rider_id')->latest()->get(),
+            return view('toc.devices.index', [
+                'riders'          => User::with('device')->where('role', 'rider')->latest()->get(),
+                'unlinkedDevices' => Device::whereNull('rider_id')->latest()->get(),
                 'totalRiders'     => User::where('role', 'rider')->count(),
-                'totalDevices'    => Helmet::count(),
-                'activeDevices'   => Helmet::where('is_active', true)->count(),
-                'pairedDevices'   => Helmet::whereNotNull('paired_at')->count(),
+                'totalDevices'    => Device::count(),
+                'activeDevices'   => Device::where('is_active', true)->count(),
+                'pairedDevices'   => Device::whereNotNull('paired_at')->count(),
                 'chartLabels'     => $labels,
                 'trendRiders'     => $trend(User::where('role', 'rider')),
-                'trendDevices'    => $trend(Helmet::query()),
+                'trendDevices'    => $trend(Device::query()),
                 'trendIncidents'  => $trend(Incident::query()),
             ]);
-        })->name('helmet.index');
+        })->name('devices.index');
 
         // Register a new physical device (TOC admin)
-        Route::post('/helmet', function (Request $request) {
+        Route::post('/devices', function (Request $request) {
             $data = $request->validate([
-                'device_code'      => ['required', 'string', 'max:50', 'unique:helmets,device_code'],
+                'device_code'      => ['required', 'string', 'max:50', 'unique:devices,device_code'],
                 'model'            => ['nullable', 'string', 'max:100'],
                 'firmware_version' => ['nullable', 'string', 'max:20'],
             ]);
 
-            Helmet::create($data);
+            Device::create($data);
 
-            return redirect()->route('toc.helmet.index')
+            return redirect()->route('toc.devices.index')
                 ->with('success', 'Device registered. Share the auto-generated pairing key with the rider.');
-        })->name('helmet.store');
+        })->name('devices.store');
 
         // ── Patrol registrations ──────────────────────────────────────────────
         Route::get('/patrol-registrations', function () {
@@ -518,9 +518,9 @@ Route::prefix('investigation')
             return view('investigation.dashboard.index', [
                 'totalRiders'    => User::where('role', 'rider')->count(),
                 'totalAccidents' => Incident::count(),
-                'activeDevices'  => Helmet::where('is_active', true)->count(),
+                'activeDevices'  => Device::where('is_active', true)->count(),
                 'recentIncidents' => Incident::with('rider')->latest()->limit(5)->get(),
-                'recentRiders'    => User::with('helmet')->where('role', 'rider')->latest()->limit(5)->get(),
+                'recentRiders'    => User::with('device')->where('role', 'rider')->latest()->limit(5)->get(),
             ]);
         })->name('dashboard');
         Route::get('/incidents', function () {
@@ -625,7 +625,7 @@ Route::prefix('investigation')
         })->name('incident-report.index');
 
         Route::get('/incident-report/{incident}', function (Incident $incident) {
-            $incident->load(['rider', 'patrolUnit', 'helmet', 'incidentRecords.generatedBy']);
+            $incident->load(['rider', 'patrolUnit', 'device', 'incidentRecords.generatedBy']);
             return view('investigation.incident-report.show', [
                 'incident'     => $incident,
                 'incidentRecords' => $incident->incidentRecords->sortByDesc('created_at'),
@@ -650,11 +650,11 @@ Route::prefix('investigation')
                 ])->filter(fn($e) => $e['time'] !== '—'),
             ]);
         })->name('incident-report.show');
-        Route::get('/helmet', function () {
-            return view('investigation.helmet.index', [
-                'riders' => User::with('helmet')->where('role', 'rider')->latest()->get(),
+        Route::get('/devices', function () {
+            return view('investigation.devices.index', [
+                'riders' => User::with('device')->where('role', 'rider')->latest()->get(),
             ]);
-        })->name('helmet.index');
+        })->name('devices.index');
 
         // ── Accident Analytics (read-only) ────────────────────────────────
         Route::get('/analytics', function () {
