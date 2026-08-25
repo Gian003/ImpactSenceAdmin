@@ -68,14 +68,6 @@ class RiderAuthController extends Controller
         return $this->apiResponse(true, 'Profile retrieved', $request->user());
     }
 
-<<<<<<< HEAD
-    public function updateProfile(UpdateProfileRequest $request): JsonResponse
-    {
-        $user = $request->user();
-        $user->update($request->validated());
-
-        return $this->apiResponse(true, 'Profile updated', $user->fresh());
-=======
     // Send a 6-digit OTP to the given email before registration
     public function otpSend(Request $request): JsonResponse
     {
@@ -175,7 +167,6 @@ class RiderAuthController extends Controller
         $user->update($data);
 
         return $this->apiResponse(true, 'Profile updated successfully', $user->fresh());
->>>>>>> 262627993386829a4cdae02c5640161453529626
     }
 
     public function updateFcmToken(Request $request): JsonResponse
