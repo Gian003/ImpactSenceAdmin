@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rider\LoginRequest;
 use App\Http\Requests\Rider\RegisterRequest;
+use App\Http\Requests\Rider\UpdateProfileRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -67,6 +68,14 @@ class RiderAuthController extends Controller
         return $this->apiResponse(true, 'Profile retrieved', $request->user());
     }
 
+<<<<<<< HEAD
+    public function updateProfile(UpdateProfileRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $user->update($request->validated());
+
+        return $this->apiResponse(true, 'Profile updated', $user->fresh());
+=======
     // Send a 6-digit OTP to the given email before registration
     public function otpSend(Request $request): JsonResponse
     {
@@ -166,12 +175,15 @@ class RiderAuthController extends Controller
         $user->update($data);
 
         return $this->apiResponse(true, 'Profile updated successfully', $user->fresh());
+>>>>>>> 262627993386829a4cdae02c5640161453529626
     }
 
     public function updateFcmToken(Request $request): JsonResponse
     {
         $request->validate(['fcm_token' => ['nullable', 'string']]);
         $request->user()->update(['fcm_token' => $request->fcm_token]);
-        return $this->apiResponse(true, 'FCM token updated');
+        return $this->apiResponse(true, $request->fcm_token === null
+            ? 'Push notifications disabled'
+            : 'FCM token updated');
     }
 }

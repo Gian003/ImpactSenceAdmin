@@ -47,9 +47,14 @@ Route::prefix('rider')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout',    [RiderAuthController::class, 'logout']);
         Route::get('profile',    [RiderAuthController::class, 'profile']);
+<<<<<<< HEAD
+        Route::patch('profile',  [RiderAuthController::class, 'updateProfile']);
+        Route::post('fcm-token', [RiderAuthController::class, 'updateFcmToken']);
+=======
         Route::patch('profile',          [RiderAuthController::class, 'updateProfile']);
         Route::post('change-password',   [RiderAuthController::class, 'changePassword']);
         Route::post('fcm-token',         [RiderAuthController::class, 'updateFcmToken']);
+>>>>>>> 262627993386829a4cdae02c5640161453529626
 
         // Device pairing
         Route::get('device', [RiderDeviceController::class, 'show']);

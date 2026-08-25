@@ -66,6 +66,8 @@ class PatrolAuthController extends Controller
     {
         $request->validate(['fcm_token' => ['nullable', 'string']]);
         $request->user()->update(['fcm_token' => $request->fcm_token]);
-        return $this->apiResponse(true, 'FCM token updated');
+        return $this->apiResponse(true, $request->fcm_token === null
+            ? 'Push notifications disabled'
+            : 'FCM token updated');
     }
 }
