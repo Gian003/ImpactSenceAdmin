@@ -89,7 +89,7 @@
     font-size: .75rem;
     color: #1a1a1a;
     padding: 2px 0;
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Genos', sans-serif;
     min-height: 18px;
 }
 
@@ -106,7 +106,7 @@
     font-size: .75rem;
     color: #1a1a1a;
     resize: none;
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Genos', sans-serif;
     padding: 2px 0;
 }
 
@@ -185,7 +185,7 @@
     padding: 5px 8px;
     background: #fff;
     font-size: .8rem;
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Genos', sans-serif;
     color: #1a1a1a;
 }
 
@@ -263,7 +263,7 @@
     outline: none;
     background: transparent;
     font-size: .8rem;
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Genos', sans-serif;
     resize: none;
     vertical-align: top;
 }

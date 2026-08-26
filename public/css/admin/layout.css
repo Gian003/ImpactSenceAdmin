@@ -6,6 +6,10 @@
     --admin-bg          : #F2F0F0;
 }
 
+body {
+    font-family: 'Genos', sans-serif;
+}
+
 /* Sidebar */
 .sidebar {
     width: 240px;
