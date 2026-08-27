@@ -4,9 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ImpactSense — Accept Invitation</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Genos:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         * { box-sizing: border-box; }
@@ -16,7 +13,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-family: 'Genos', sans-serif;
+            font-family: 'Segoe UI', sans-serif;
             padding: 1.5rem;
         }
 
