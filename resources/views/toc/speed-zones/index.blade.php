@@ -137,24 +137,26 @@
                     <td style="padding:11px 16px; border-bottom:1px solid #f5eeef; color:#374151; font-size:.8rem; white-space:nowrap;">
                         {{ $avgSpeed !== null ? $avgSpeed . ' kph' : '—' }}
                         @if($samples > 0)
-                        <div style="font-size:.68rem; color:#9ca3af; margin-top:1px;">{{ $samples }} sample{{ $samples !== 1 ? 's' : '' }}</div>
+                        <div style="font-size:.68rem; color:#6b7280; margin-top:1px;">{{ $samples }} sample{{ $samples !== 1 ? 's' : '' }}</div>
                         @endif
                     </td>
                     <td style="padding:11px 16px; border-bottom:1px solid #f5eeef; min-width:110px;">
                         @if($pct !== null)
-                        <div style="position:relative; height:7px; background:#f1f5f9; border-radius:4px; overflow:hidden;">
+                        <div role="progressbar" aria-valuenow="{{ $pct }}" aria-valuemin="0" aria-valuemax="100"
+                             aria-label="{{ $zone->name }}: {{ $pct }}% of speed limit{{ $violating ? ', exceeding limit' : '' }}"
+                             style="position:relative; height:7px; background:#f1f5f9; border-radius:4px; overflow:hidden;">
                             <div style="position:absolute; top:0; left:0; height:100%; width:{{ min($pct, 100) }}%; background:{{ $barColor }}; border-radius:4px;"></div>
                         </div>
-                        <div style="font-size:.67rem; color:#9ca3af; margin-top:2px;">{{ $pct }}% of limit</div>
+                        <div style="font-size:.67rem; color:#6b7280; margin-top:2px;">{{ $pct }}% of limit</div>
                         @else
-                        <div style="font-size:.74rem; color:#d1d5db; font-style:italic;">no data</div>
+                        <div style="font-size:.74rem; color:#6b7280; font-style:italic;">no data</div>
                         @endif
                     </td>
                     <td style="padding:11px 16px; border-bottom:1px solid #f5eeef; white-space:nowrap;">
                         @if($avgSpeed === null)
-                            <span style="display:inline-block; padding:3px 10px; border-radius:20px; font-size:.71rem; font-weight:600; background:#f1f5f9; color:#9ca3af;">No data</span>
+                            <span style="display:inline-block; padding:3px 10px; border-radius:20px; font-size:.71rem; font-weight:600; background:#f1f5f9; color:#475569;">No data</span>
                         @elseif($violating)
-                            <span style="display:inline-block; padding:3px 10px; border-radius:20px; font-size:.71rem; font-weight:700; background:#fef2f2; color:#e53e3e;">⚠ Speeding</span>
+                            <span style="display:inline-block; padding:3px 10px; border-radius:20px; font-size:.71rem; font-weight:700; background:#fef2f2; color:#b91c1c;">⚠ Speeding</span>
                         @else
                             <span style="display:inline-block; padding:3px 10px; border-radius:20px; font-size:.71rem; font-weight:700; background:#f0fdf4; color:#2a7c5b;">✓ OK</span>
                         @endif

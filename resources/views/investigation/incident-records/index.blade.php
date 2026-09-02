@@ -224,7 +224,7 @@
                     <div><span class="irf-label">Gender:</span><input class="irf-input" type="text" name="c_gender"></div>
                     <div><span class="irf-label">Civil Status:</span><input class="irf-input" type="text" name="c_civil_status"></div>
                     <div><span class="irf-label">Date of Birth:</span><input class="irf-input" type="date" name="c_dob" value="{{ $incident?->rider?->date_of_birth?->format('Y-m-d') ?? '' }}"></div>
-                    <div><span class="irf-label">Age:</span><input class="irf-input" type="number" name="c_age" value="{{ $incident?->rider?->date_of_birth ? now()->diffInYears($incident?->rider->date_of_birth) : '' }}"></div>
+                    <div><span class="irf-label">Age:</span><input class="irf-input" type="number" name="c_age" value="{{ $incident?->rider?->date_of_birth ? $incident->rider->date_of_birth->age : '' }}"></div>
                     <div><span class="irf-label">Place of Birth:</span><input class="irf-input" type="text" name="c_pob"></div>
                     <div><span class="irf-label">Phone Number:</span><input class="irf-input" type="text" name="c_phone" value="{{ $incident?->rider?->phone_number ?? '' }}"></div>
                 </div>
@@ -350,10 +350,10 @@
         <tbody>
             <tr>
                 <td style="vertical-align:top; padding:6px;">
-                    <input type="date" name="e_date" style="width:100%; border:none; outline:none; background:transparent; font-size:.8rem;">
+                    <input type="date" name="e_date" class="irf-input" style="width:100%; border:none; background:transparent; font-size:.8rem;">
                 </td>
                 <td style="vertical-align:top; padding:6px;">
-                    <textarea name="e_progress" style="width:100%; height:480px; border:none; outline:none; background:transparent; font-size:.8rem; resize:none; font-family:'Segoe UI',sans-serif;"
+                    <textarea name="e_progress" class="irf-textarea" style="width:100%; height:480px; border:none; background:transparent; font-size:.8rem; resize:none; font-family:'Segoe UI',sans-serif;"
                               placeholder="Describe progress of investigation..."></textarea>
                 </td>
             </tr>
@@ -377,89 +377,11 @@
 @endsection
 
 @push('scripts')
+{{-- Server-side data the external script needs. --}}
 <script>
-    function goToPage(n) {
-        document.getElementById('page1').style.display = n === 1 ? 'block' : 'none';
-        document.getElementById('page2').style.display = n === 2 ? 'block' : 'none';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    // Reprint (investigation.incident-records.reprint) — overlays everything
-    // that was actually typed the first time on top of whatever the page
-    // already prefilled from the incident, so reopening a past IRF restores
-    // it rather than starting blank again. Done in JS rather than adding
-    // value="" to every one of the ~60 inputs individually.
-    const savedData = @json($savedData ?? null);
-    if (savedData) {
-        const form = document.getElementById('irfForm');
-        Object.entries(savedData).forEach(([name, value]) => {
-            const field = form.elements[name];
-            if (field && value !== null && value !== undefined) field.value = value;
-        });
-    }
-
-    // Save confirmation — previously there was zero feedback on success and
-    // a jarring native alert() on failure. Success auto-dismisses; errors
-    // stay until closed, since silently losing typed data is worth noticing.
-    function showToast(message, type) {
-        document.querySelectorAll('.irf-toast').forEach(el => el.remove());
-
-        const toast = document.createElement('div');
-        toast.className = `irf-toast irf-toast-${type}`;
-        const text = document.createElement('span');
-        text.textContent = message;
-        const closeBtn = document.createElement('button');
-        closeBtn.type = 'button';
-        closeBtn.innerHTML = '&times;';
-        closeBtn.onclick = () => toast.remove();
-        toast.append(text, closeBtn);
-        document.body.appendChild(toast);
-
-        if (type === 'success') setTimeout(() => toast.remove(), 3500);
-    }
-
-    // Shared by both buttons — SAVE persists without printing, SAVE & PRINT
-    // persists (marking printed_at) then opens the print dialog. Saving
-    // always happens first so a failed/cancelled print never loses the data,
-    // and printed_at is only ever set by the print path, never cleared, so
-    // re-saving a previously-printed record doesn't erase that history.
-    async function saveIncidentRecord(printed) {
-        const form = document.getElementById('irfForm');
-        const formData = new FormData(form);
-        formData.set('printed', printed ? '1' : '0');
-        const linkedIncident = form.elements['incident_id'].value;
-
-        try {
-            const res = await fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const result = await res.json();
-            // Once saved, further saves from this same page update the same
-            // row instead of creating duplicates.
-            if (result.id) form.elements['record_id'].value = result.id;
-
-            const linkNote = linkedIncident ? ' and linked to the incident' : ' (not linked to an incident)';
-            showToast(
-                printed ? `Saved & sent to print${linkNote}.` : `Saved${linkNote}.`,
-                'success'
-            );
-        } catch (err) {
-            console.error('Failed to save incident record:', err);
-            showToast(
-                printed
-                    ? 'Could not save the record, but printing anyway — it won\'t appear on the Incident Report page until saved successfully.'
-                    : 'Could not save the record. Check your connection and try again.',
-                'error'
-            );
-        }
-
-        if (printed) window.print();
-    }
-
-    document.getElementById('saveBtn').addEventListener('click', () => saveIncidentRecord(false));
-    document.getElementById('saveAndPrintBtn').addEventListener('click', () => saveIncidentRecord(true));
+    window.IncidentRecordsConfig = {
+        savedData: @json($savedData ?? null),
+    };
 </script>
+<script src="{{ asset('js/investigation/incident-records.js') }}?v={{ filemtime(public_path('js/investigation/incident-records.js')) }}"></script>
 @endpush

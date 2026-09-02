@@ -185,7 +185,7 @@
             @endif
         </div>
         @if($incidentRecords->isEmpty())
-        <div class="timeline-log" style="color:#9ca3af; font-size:.85rem;">
+        <div class="timeline-log" style="color:#6b7280; font-size:.85rem;">
             No Incident Record Form has been generated for this incident yet.
         </div>
         @else
@@ -216,54 +216,16 @@
 @endsection
 
 @push('scripts')
+{{-- Server-side data the external script needs. --}}
 <script>
-    function initReportMap() {
-        const lat = {{ $lat }};
-        const lng = {{ $lng }};
-
-        const map = new google.maps.Map(document.getElementById('reportMap'), {
-            center: { lat, lng },
-            zoom: 14,
-            mapTypeId: 'roadmap',
-            zoomControl: true,
-            mapTypeControl: false,
-            streetViewControl: false,
-            fullscreenControl: false,
-        });
-
-        const marker = new google.maps.Marker({
-            position: { lat, lng },
-            map,
-            icon: {
-                url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
-                scaledSize: new google.maps.Size(32, 32),
-            },
-        });
-
-        const infoWindow = new google.maps.InfoWindow({
-            content: '<b>{{ $fullName }}</b><br>{{ $location }}',
-        });
-        infoWindow.open(map, marker);
-    }
-
-    function exportReport() {
-        const content = document.querySelector('.content').innerHTML;
-        const win = window.open('', '_blank');
-        win.document.write(`
-            <html><head>
-                <title>Incident Report</title>
-                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-                <link href="{{ asset('css/investigation/incident-report.css') }}" rel="stylesheet">
-                <style>
-                    .report-actions { display:none; }
-                    body { padding: 24px; background:#fff; }
-                </style>
-            </head><body>${content}</body></html>
-        `);
-        win.document.close();
-        win.focus();
-        setTimeout(() => { win.print(); win.close(); }, 800);
-    }
+    window.IncidentReportConfig = {
+        lat: {{ $lat }},
+        lng: {{ $lng }},
+        fullName: @json($fullName),
+        location: @json($location),
+        incidentReportCssUrl: @json(asset('css/investigation/incident-report.css')),
+    };
 </script>
+<script src="{{ asset('js/investigation/incident-report.js') }}?v={{ filemtime(public_path('js/investigation/incident-report.js')) }}"></script>
 <script src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}&callback=initReportMap" async defer></script>
 @endpush

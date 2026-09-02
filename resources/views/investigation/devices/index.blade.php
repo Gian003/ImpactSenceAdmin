@@ -26,11 +26,11 @@
                                 {{ $rider->device->device_code }}
                             </span>
                         @else
-                            <span style="color:#94a3b8;">No device</span>
+                            <span style="color:#64748b;">No device</span>
                         @endif
                     </td>
                     <td style="padding:11px 16px; color:#1e293b; font-weight:500; border-bottom:1px solid #f5eeef;">{{ $rider->full_name }}</td>
-                    <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $rider->date_of_birth ? now()->diffInYears($rider->date_of_birth) : 'N/A' }}</td>
+                    <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $rider->date_of_birth ? $rider->date_of_birth->age : 'N/A' }}</td>
                     <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $rider->phone_number ?? 'N/A' }}</td>
                 </tr>
                 @empty

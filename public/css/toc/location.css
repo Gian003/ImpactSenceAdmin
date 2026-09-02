@@ -1,10 +1,23 @@
+/* Map first, full width, sized to the viewport so it's fully visible
+   without scrolling past anything — that's the officer's primary focus.
+   Alert cards live in a capped, independently-scrollable strip right below
+   it, instead of a fixed pixel height that could either overshoot the
+   screen (a giant fixed height) or get pushed around by however many
+   accidents happen to be active (no cap at all). */
+.tracking-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
 /* Map container — Bootstrap cannot position/size this */
 .map-wrap {
     position: relative;
     border-radius: 1rem;
     overflow: hidden;
     border: 1.5px solid #c0d4e0;
-    height: 480px;
+    height: 63vh; /* dominates the screen and stays fully visible on both small and large monitors, unlike a fixed px height */
+    min-height: 420px; /* keeps the map usable even on a short viewport (e.g. a laptop with browser chrome eating into 70vh) */
     background: #e8f0f5;
 }
 
@@ -13,17 +26,96 @@
     height: 100%;
 }
 
-/* Map legend toggle card (top-right overlay) */
-.map-legend-card {
+.alerts-panel {
+    max-height: 350px;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+
+/* Wraps the panel-toggle card and the static map key so both stack in the
+   top-right corner without needing separate absolute-position math for each. */
+.map-overlay-topright {
     position: absolute;
     top: 12px;
     right: 12px;
     z-index: 800;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 220px;
+}
+
+/* Map legend toggle card */
+.map-legend-card {
     background: rgba(255, 255, 255, .97);
     border-radius: .5rem;
     box-shadow: 0 2px 10px rgba(0, 0, 0, .14);
     min-width: 185px;
     overflow: hidden;
+}
+
+/* Static key explaining marker color/size/shape — always visible, not a
+   toggle, since the point is to remove guesswork without adding a step. */
+.map-key-card {
+    background: rgba(255, 255, 255, .97);
+    border-radius: .5rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .14);
+    padding: 10px 12px;
+}
+
+.map-key-title {
+    font-size: .86rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 6px;
+}
+
+.map-key-group-label {
+    font-size: .78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #64748b; /* #94a3b8 fails WCAG AA (2.56:1) on this near-white card — verified with the same audit used elsewhere in this file */
+    margin: 8px 0 4px;
+}
+.map-key-group-label:first-of-type { margin-top: 0; }
+
+.map-key-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: .84rem;
+    color: #374151;
+    padding: 2px 0;
+}
+
+.map-key-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, .8);
+}
+.map-key-dot--sm { width: 7px; height: 7px; }
+.map-key-dot--lg { width: 15px; height: 15px; }
+.map-key-dot--faded { opacity: .35; }
+
+.map-key-ring {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    border: 2px solid #dc2626;
+    background: rgba(220, 38, 38, .15);
+    flex-shrink: 0;
+}
+
+.map-key-arrow {
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 9px solid #f59e0b;
+    flex-shrink: 0;
 }
 
 .legend-btn {
@@ -35,7 +127,7 @@
     border: none;
     background: transparent;
     text-align: left;
-    font-size: .82rem;
+    font-size: .88rem;
     font-weight: 500;
     color: #222;
     border-bottom: 1px solid #eee;
@@ -100,7 +192,7 @@
 
 .panel-card th {
     padding: 11px 15px;
-    font-size: .83rem;
+    font-size: .88rem;
     font-weight: 700;
     text-align: left;
     background: #fff;
@@ -115,7 +207,7 @@
 
 .panel-card td {
     padding: 9px 15px;
-    font-size: .79rem;
+    font-size: .86rem;
     color: #374151;
     border-bottom: 1px solid #f5f5f5;
     vertical-align: top;

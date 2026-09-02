@@ -66,7 +66,7 @@
                     <tbody>
                         @forelse($recentIncidents as $inc)
                         <tr>
-                            <td style="padding:10px 14px; color:#94a3b8; border-bottom:1px solid #f5eeef;">{{ $inc->id }}</td>
+                            <td style="padding:10px 14px; color:#64748b; border-bottom:1px solid #f5eeef;">{{ $inc->id }}</td>
                             <td style="padding:10px 14px; color:#1e293b; font-weight:500; border-bottom:1px solid #f5eeef;">{{ $inc->rider?->full_name ?? '—' }}</td>
                             <td style="padding:10px 14px; color:#475569; border-bottom:1px solid #f5eeef; text-transform:capitalize;">{{ str_replace('_',' ',$inc->type) }}</td>
                             <td style="padding:10px 14px; border-bottom:1px solid #f5eeef;">
@@ -91,10 +91,10 @@
                                 @endphp
                                 <span class="status-badge {{ $ss }}">{{ ucfirst($inc->status) }}</span>
                             </td>
-                            <td style="padding:10px 14px; color:#94a3b8; font-size:.78rem; border-bottom:1px solid #f5eeef; white-space:nowrap;">{{ $inc->created_at->format('M d, H:i') }}</td>
+                            <td style="padding:10px 14px; color:#64748b; font-size:.78rem; border-bottom:1px solid #f5eeef; white-space:nowrap;">{{ $inc->created_at->format('M d, H:i') }}</td>
                         </tr>
                         @empty
-                        <tr><td colspan="6" class="text-center py-4" style="color:#94a3b8;">No incidents yet.</td></tr>
+                        <tr><td colspan="6" class="text-center py-4" style="color:#64748b;">No incidents yet.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

@@ -105,6 +105,14 @@
         }
         .field-wrap input::placeholder { color: rgba(255,255,255,.4); }
 
+        /* Visible focus indicator on the whole pill, since the input itself
+           has outline:none — keyboard users need some visible sign of where
+           they are. */
+        .field-wrap:focus-within {
+            outline: 2px solid #F4C5D0;
+            outline-offset: 2px;
+        }
+
         .btn-login {
             width: 100%;
             padding: 13px;

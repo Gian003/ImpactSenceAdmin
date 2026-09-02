@@ -44,11 +44,11 @@ class DemoDataSeeder extends Seeder
             ['full_name' => 'Rosa Garcia',           'email' => 'rosa.garcia@demo.ph',       'phone_number' => '09171230006', 'address' => 'Consolacion, Urdaneta City',        'date_of_birth' => '1998-01-25'],
             ['full_name' => 'Miguel Torres',         'email' => 'miguel.torres@demo.ph',     'phone_number' => '09171230007', 'address' => 'Macalong, Urdaneta City',           'date_of_birth' => '1993-06-17'],
             ['full_name' => 'Carmen Flores',         'email' => 'carmen.flores@demo.ph',     'phone_number' => '09171230008', 'address' => 'Cayambanan, Urdaneta City',         'date_of_birth' => '1991-12-03'],
-            ['full_name' => 'Roberto Villanueva',    'email' => 'roberto.villanueva@demo.ph','phone_number' => '09171230009', 'address' => 'Nancamaliran East, Urdaneta City',  'date_of_birth' => '1987-08-19'],
+            ['full_name' => 'Roberto Villanueva',    'email' => 'roberto.villanueva@demo.ph', 'phone_number' => '09171230009', 'address' => 'Nancamaliran East, Urdaneta City',  'date_of_birth' => '1987-08-19'],
             ['full_name' => 'Elena Pascual',         'email' => 'elena.pascual@demo.ph',     'phone_number' => '09171230010', 'address' => 'Anonas, Urdaneta City',             'date_of_birth' => '1996-02-14'],
             ['full_name' => 'Antonio Ramos',         'email' => 'antonio.ramos@demo.ph',     'phone_number' => '09171230011', 'address' => 'Bactad East, Urdaneta City',        'date_of_birth' => '1983-10-05'],
             ['full_name' => 'Isabella Cruz',         'email' => 'isabella.cruz@demo.ph',     'phone_number' => '09171230012', 'address' => 'Cabaruan, Urdaneta City',           'date_of_birth' => '2000-05-28'],
-            ['full_name' => 'Francisco Bautista',    'email' => 'francisco.bautista@demo.ph','phone_number' => '09171230013', 'address' => 'Dilan-Paurido, Urdaneta City',      'date_of_birth' => '1989-07-11'],
+            ['full_name' => 'Francisco Bautista',    'email' => 'francisco.bautista@demo.ph', 'phone_number' => '09171230013', 'address' => 'Dilan-Paurido, Urdaneta City',      'date_of_birth' => '1989-07-11'],
             ['full_name' => 'Luisa Aquino',          'email' => 'luisa.aquino@demo.ph',      'phone_number' => '09171230014', 'address' => 'Poblacion, Urdaneta City',          'date_of_birth' => '1994-03-07'],
             ['full_name' => 'Manuel Ocampo',         'email' => 'manuel.ocampo@demo.ph',     'phone_number' => '09171230015', 'address' => 'Nancayasan, Urdaneta City',         'date_of_birth' => '1986-09-23'],
         ];
@@ -158,7 +158,8 @@ class DemoDataSeeder extends Seeder
             'Rider fell due to tire blowout.',
             'Rear-ended by motorcycle.',
             'Rider lost control at speed bump.',
-            null, null,
+            null,
+            null,
         ];
 
         // Incidents per month for the last 12 months (index 0 = 12 months ago)

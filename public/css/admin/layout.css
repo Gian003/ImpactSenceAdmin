@@ -113,7 +113,7 @@ body {
 /* Status badges */
 .badge-pending    { background: #fef3c7; color: #92400e; }
 .badge-accepted   { background: #d1fae5; color: #065f46; }
-.badge-expired    { background: #f1f5f9; color: #64748b; }
+.badge-expired    { background: #f1f5f9; color: #475569; }
 .badge-active     { background: #d1fae5; color: #065f46; }
 .badge-inactive   { background: #fee2e2; color: #991b1b; }
 .badge-toc        { background: #fce8ed; color: #7B1A2E; }

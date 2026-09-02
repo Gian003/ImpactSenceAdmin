@@ -61,3 +61,32 @@ body {
 .sidebar .nav-link svg {
     flex-shrink: 0;
 }
+
+/* New-incident sidebar flicker — pulses the Location Tracking nav link
+   itself instead of a separate banner overlay, so the alert and the click
+   target are the same element: notice it, click it, done. Cycle is ~1.2s
+   (under 1 flash/sec), well clear of the 3-flashes/sec threshold WCAG 2.3.1
+   flags as a seizure risk. */
+@keyframes toc-nav-alert-flicker {
+    0%, 100% {
+        background: transparent;
+        box-shadow: none;
+    }
+    50% {
+        background: rgba(220, 38, 38, .55);
+        box-shadow: 0 0 0 2px rgba(220, 38, 38, .35) inset;
+    }
+}
+
+.sidebar .nav-link.nav-alert-flicker {
+    animation: toc-nav-alert-flicker 1.2s ease-in-out infinite;
+}
+
+/* Motion-sensitive users get a steady highlight instead of a loop — still
+   noticeable, no repeated flashing. */
+@media (prefers-reduced-motion: reduce) {
+    .sidebar .nav-link.nav-alert-flicker {
+        animation: none;
+        background: rgba(220, 38, 38, .45);
+    }
+}

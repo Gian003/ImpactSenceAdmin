@@ -134,13 +134,15 @@
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <div>
                     <h6 class="fw-bold mb-0" style="color:#1b3d52; font-size:.95rem;">Accident Hotspot Map</h6>
+                    {{-- Google deprecated google.maps.visualization.HeatmapLayer in
+                         May 2025 and it's been non-functional since May 2026 — no
+                         drop-in replacement exists in the Maps JS API itself, so
+                         this now shows individually colored markers (already a
+                         fully working, separate code path) instead of a gradient. --}}
                     <small class="text-muted" style="font-size:.73rem;">
-                        All {{ $heatmapPoints->count() }} recorded incident locations — red zones are high-risk areas
+                        All {{ $heatmapPoints->count() }} recorded incident locations — color shows severity
+                        (red = critical, orange = high, yellow = medium, green = low)
                     </small>
-                </div>
-                <div class="d-flex gap-2">
-                    <button class="toggle-btn active" id="btn-heatmap" onclick="setMode('heatmap')">Heatmap</button>
-                    <button class="toggle-btn" id="btn-markers" onclick="setMode('markers')">Markers</button>
                 </div>
             </div>
             <div id="accident-map"></div>
@@ -157,7 +159,14 @@
             @forelse($pronestAreas as $i => $area)
             @php $pct = $pronestAreas->first()->total > 0
                     ? round($area->total / $pronestAreas->first()->total * 100) : 0; @endphp
-            <div class="d-flex align-items-start gap-2 mb-3">
+            {{-- Clicking pans/zooms the map to this area's incidents. The
+                 sidebar ranks by exact address text; the map clusters by real
+                 GPS proximity, so a busy road (one address, several distinct
+                 points along it) won't show as a single matching bubble on
+                 the map — this is what actually connects the two views
+                 instead of leaving them looking inconsistent side by side. --}}
+            <div class="d-flex align-items-start gap-2 mb-3" style="cursor:pointer;"
+                 onclick='flyToArea(@json($area->address))' title="Show on map">
                 <div class="prone-rank r{{ $i + 1 }}">{{ $i + 1 }}</div>
                 <div class="flex-grow-1 min-w-0">
                     <div style="font-size:.8rem; font-weight:600; color:#1b1b1b; line-height:1.3;
@@ -191,7 +200,13 @@
         <div class="chart-card p-3">
             <h6 class="fw-bold mb-1" style="color:#1b3d52; font-size:.95rem;">Monthly Incident Trend</h6>
             <small class="text-muted d-block mb-3" style="font-size:.73rem;">Last 12 months</small>
-            <canvas id="monthlyChart" height="110"></canvas>
+            {{-- The canvas's old height="" attribute never actually took effect —
+                 Chart.js's "responsive" mode derives height from container width
+                 unless maintainAspectRatio:false is set (now is, in analytics.js),
+                 and that mode needs an actual sized wrapper to size against. --}}
+            <div style="height:220px;">
+                <canvas id="monthlyChart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -199,7 +214,9 @@
         <div class="chart-card p-3">
             <h6 class="fw-bold mb-1" style="color:#1b3d52; font-size:.95rem;">Severity Breakdown</h6>
             <small class="text-muted d-block mb-3" style="font-size:.73rem;">Distribution by severity level</small>
-            <canvas id="severityChart" height="190"></canvas>
+            <div style="height:220px;">
+                <canvas id="severityChart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -212,7 +229,9 @@
         <div class="chart-card p-3">
             <h6 class="fw-bold mb-1" style="color:#1b3d52; font-size:.95rem;">Incidents by Day of Week</h6>
             <small class="text-muted d-block mb-3" style="font-size:.73rem;">Which days have the most accidents</small>
-            <canvas id="dowChart" height="150"></canvas>
+            <div style="height:200px;">
+                <canvas id="dowChart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -220,7 +239,9 @@
         <div class="chart-card p-3">
             <h6 class="fw-bold mb-1" style="color:#1b3d52; font-size:.95rem;">Incidents by Hour of Day</h6>
             <small class="text-muted d-block mb-3" style="font-size:.73rem;">Peak hours for motorcycle accidents</small>
-            <canvas id="hourChart" height="150"></canvas>
+            <div style="height:200px;">
+                <canvas id="hourChart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -231,226 +252,24 @@
 @push('scripts')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
+{{-- Server-side data the external script needs. --}}
 <script>
-// ── Server data ───────────────────────────────────────────────────────────────
-const RAW_HEATMAP   = @json($heatmapPoints);
-const RAW_MONTHLY   = @json($byMonth);
-const RAW_SEVERITY  = @json($bySeverity);
-const RAW_DOW       = @json($byDayOfWeek);
-const RAW_HOUR      = @json($byHour);
-
-// ── Chart defaults ────────────────────────────────────────────────────────────
-Chart.defaults.font.family = 'system-ui, sans-serif';
-Chart.defaults.font.size   = 11;
-
-// ── Monthly trend (bar) ───────────────────────────────────────────────────────
-(function () {
-    const labels = [];
-    const counts = {};
-    for (let i = 11; i >= 0; i--) {
-        const d   = new Date();
-        d.setMonth(d.getMonth() - i);
-        const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-        const lbl = d.toLocaleString('default', { month: 'short', year: '2-digit' });
-        labels.push(lbl);
-        counts[key] = 0;
-    }
-    RAW_MONTHLY.forEach(r => { if (counts[r.month] !== undefined) counts[r.month] = r.total; });
-
-    new Chart(document.getElementById('monthlyChart'), {
-        type: 'bar',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Incidents',
-                data: Object.values(counts),
-                backgroundColor: Object.values(counts).map((v, _, a) =>
-                    v === Math.max(...a) ? '#dc2626' : '#1b3d52'),
-                borderRadius: 5,
-                borderSkipped: false,
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false },
-                       tooltip: { callbacks: { label: ctx => ` ${ctx.raw} incident${ctx.raw !== 1 ? 's' : ''}` } } },
-            scales: {
-                y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f3f4f6' } },
-                x: { grid: { display: false } }
-            }
-        }
-    });
-})();
-
-// ── Severity donut ────────────────────────────────────────────────────────────
-(function () {
-    const colorMap = { critical:'#dc2626', high:'#f97316', medium:'#eab308', low:'#22c55e', minor:'#22c55e' };
-    const labels  = RAW_SEVERITY.map(s => (s.severity ?? 'unknown').charAt(0).toUpperCase() + (s.severity ?? 'unknown').slice(1));
-    const data    = RAW_SEVERITY.map(s => s.total);
-    const colors  = RAW_SEVERITY.map(s => colorMap[s.severity] ?? '#94a3b8');
-
-    new Chart(document.getElementById('severityChart'), {
-        type: 'doughnut',
-        data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
-        options: {
-            responsive: true, cutout: '62%',
-            plugins: { legend: { position: 'bottom', labels: { padding: 14, font: { size: 11 } } } }
-        }
-    });
-})();
-
-// ── Day of week (bar) ─────────────────────────────────────────────────────────
-(function () {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const data = days.map((_, i) => {
-        const entry = Object.values(RAW_DOW).find(r => Number(r.day) === i + 1);
-        return entry ? entry.total : 0;
-    });
-    const max = Math.max(...data);
-
-    new Chart(document.getElementById('dowChart'), {
-        type: 'bar',
-        data: {
-            labels: days,
-            datasets: [{
-                label: 'Incidents',
-                data,
-                backgroundColor: data.map(v => v === max ? '#dc2626' : '#4b7a96'),
-                borderRadius: 5,
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f3f4f6' } },
-                x: { grid: { display: false } }
-            }
-        }
-    });
-})();
-
-// ── Hour of day (line) ────────────────────────────────────────────────────────
-(function () {
-    const labels = Array.from({ length: 24 }, (_, i) => {
-        const h = i % 12 || 12;
-        return `${h}${i < 12 ? 'am' : 'pm'}`;
-    });
-    const data = Array.from({ length: 24 }, (_, i) => {
-        const entry = Object.values(RAW_HOUR).find(r => Number(r.hour) === i);
-        return entry ? entry.total : 0;
-    });
-
-    new Chart(document.getElementById('hourChart'), {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Incidents',
-                data,
-                borderColor: '#1b3d52',
-                backgroundColor: 'rgba(27,61,82,.1)',
-                fill: true, tension: 0.4,
-                pointRadius: 3, pointBackgroundColor: '#1b3d52',
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f3f4f6' } },
-                x: { ticks: { maxTicksLimit: 8 }, grid: { display: false } }
-            }
-        }
-    });
-})();
-
-// ── Google Maps heatmap ───────────────────────────────────────────────────────
-let _map = null, _heatLayer = null, _markers = [], _mode = 'heatmap';
-
-function initMap() {
-    const center = { lat: 15.9766, lng: 120.5719 }; // Urdaneta City
-
-    _map = new google.maps.Map(document.getElementById('accident-map'), {
-        zoom: 14,
-        center,
-        mapTypeId: 'roadmap',
-        styles: [
-            { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-            { featureType: 'transit', stylers: [{ visibility: 'off' }] }
-        ],
-    });
-
-    if (!RAW_HEATMAP.length) return;
-
-    const sevWeight = { critical: 5, high: 3, medium: 2, low: 1, minor: 1 };
-    const sevColor  = { critical: '#dc2626', high: '#f97316', medium: '#eab308', low: '#22c55e', minor: '#22c55e' };
-
-    // Build heatmap points
-    const weighted = RAW_HEATMAP.map(p => ({
-        location: new google.maps.LatLng(Number(p.latitude), Number(p.longitude)),
-        weight: sevWeight[p.severity] ?? 1,
-    }));
-
-    _heatLayer = new google.maps.visualization.HeatmapLayer({
-        data: weighted,
-        map: _map,
-        radius: 45,
-        gradient: [
-            'rgba(0,255,255,0)', 'rgba(0,255,255,1)',
-            'rgba(0,191,255,1)', 'rgba(0,127,255,1)',
-            'rgba(0,0,255,1)',   'rgba(63,0,128,1)',
-            'rgba(127,0,64,1)',  'rgba(191,0,31,1)',
-            'rgba(255,0,0,1)',
-        ],
-    });
-
-    // Build individual markers (hidden by default)
-    RAW_HEATMAP.forEach(p => {
-        const marker = new google.maps.Marker({
-            position: new google.maps.LatLng(Number(p.latitude), Number(p.longitude)),
-            map: null,
-            title: p.severity ?? 'unknown',
-            icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                fillColor: sevColor[p.severity] ?? '#1b3d52',
-                fillOpacity: 0.85,
-                strokeWeight: 1.5,
-                strokeColor: '#fff',
-                scale: 9,
-            },
-        });
-        _markers.push(marker);
-    });
-
-    // If data exists but all points are at 0,0 fall back gracefully
-    if (RAW_HEATMAP.length > 0 &&
-        RAW_HEATMAP.every(p => Number(p.latitude) === 0 && Number(p.longitude) === 0)) {
-        _map.setCenter(center);
-    } else if (RAW_HEATMAP.length > 0) {
-        const bounds = new google.maps.LatLngBounds();
-        RAW_HEATMAP.forEach(p => bounds.extend(
-            new google.maps.LatLng(Number(p.latitude), Number(p.longitude))));
-        _map.fitBounds(bounds, 40);
-    }
-}
-
-function setMode(mode) {
-    _mode = mode;
-    if (!_map) return;
-    if (mode === 'heatmap') {
-        _heatLayer?.setMap(_map);
-        _markers.forEach(m => m.setMap(null));
-    } else {
-        _heatLayer?.setMap(null);
-        _markers.forEach(m => m.setMap(_map));
-    }
-    document.getElementById('btn-heatmap').classList.toggle('active', mode === 'heatmap');
-    document.getElementById('btn-markers').classList.toggle('active', mode === 'markers');
-}
+    window.TocAnalyticsConfig = {
+        heatmapPoints: @json($heatmapPoints),
+        byMonth: @json($byMonth),
+        bySeverity: @json($bySeverity),
+        byDayOfWeek: @json($byDayOfWeek),
+        byHour: @json($byHour),
+    };
 </script>
+<script src="{{ asset('js/toc/analytics.js') }}?v={{ filemtime(public_path('js/toc/analytics.js')) }}"></script>
+{{-- Groups nearby markers into a numbered cluster bubble instead of letting
+     them overlap as the incident count grows — must load before the async
+     Google Maps script below, since initMap() (defined in analytics.js
+     above) uses the markerClusterer global. --}}
+<script src="https://cdn.jsdelivr.net/npm/@googlemaps/markerclusterer@2.6.2/dist/index.min.js"></script>
 
 <script async
-    src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}&libraries=visualization&callback=initMap">
+    src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}&callback=initMap">
 </script>
 @endpush

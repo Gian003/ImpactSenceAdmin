@@ -7,7 +7,7 @@
 {{-- STAT CARDS --}}
 <div class="row g-3 mb-4">
 
-    <div class="col-md-4">
+    <div class="col-6 col-xl-3">
         <div class="card border-0 h-100" style="background:#fff; border: 1px solid #e8d5d9 !important; border-radius:12px;">
             <div class="card-body d-flex align-items-center gap-3 py-3">
                 <div style="width:48px; height:48px; border-radius:10px; background:#fce7f3; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
@@ -26,7 +26,7 @@
         </div>
     </div>
 
-    <div class="col-md-4">
+    <div class="col-6 col-xl-3">
         <div class="card border-0 h-100" style="background:#fff; border: 1px solid #e8d5d9 !important; border-radius:12px;">
             <div class="card-body d-flex align-items-center gap-3 py-3">
                 <div style="width:48px; height:48px; border-radius:10px; background:#fee2e2; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
@@ -38,7 +38,14 @@
                     </svg>
                 </div>
                 <div>
-                    <div style="font-size:2rem; font-weight:900; color:#1e293b; line-height:1;">{{ $totalAccidents ?? 0 }}</div>
+                    <div style="font-size:2rem; font-weight:900; color:#1e293b; line-height:1; display:flex; align-items:baseline; gap:8px;">
+                        {{ $totalAccidents ?? 0 }}
+                        {{-- Only shown when there's something to flag — a "+0
+                             today" badge on every quiet day is just noise. --}}
+                        @if(($accidentsToday ?? 0) > 0)
+                        <span style="font-size:.72rem; font-weight:700; color:#dc2626;">+{{ $accidentsToday }} today</span>
+                        @endif
+                    </div>
                     <div style="font-size:.72rem; color:#64748b; margin-top:2px;">Registered Rides in the System</div>
                     <div style="font-size:.78rem; font-weight:700; color:#7B1A2E; margin-top:1px;">Total Accident Detected</div>
                 </div>
@@ -46,7 +53,7 @@
         </div>
     </div>
 
-    <div class="col-md-4">
+    <div class="col-6 col-xl-3">
         <div class="card border-0 h-100" style="background:#fff; border: 1px solid #e8d5d9 !important; border-radius:12px;">
             <div class="card-body d-flex align-items-center gap-3 py-3">
                 <div style="width:48px; height:48px; border-radius:10px; background:#fce7f3; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
@@ -64,6 +71,32 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    {{-- Pending Patrol Registrations — otherwise only visible via the
+         sidebar badge or the notification bell, so a registration could sit
+         unreviewed unless someone happens to check either of those. --}}
+    <div class="col-6 col-xl-3">
+        <a href="{{ route('toc.patrol-registrations.index') }}" class="text-decoration-none">
+            <div class="card border-0 h-100" style="background:#fff; border: 1px solid #e8d5d9 !important; border-radius:12px;">
+                <div class="card-body d-flex align-items-center gap-3 py-3">
+                    <div style="width:48px; height:48px; border-radius:10px; background:{{ ($pendingPatrolRegistrations ?? 0) > 0 ? '#fee2e2' : '#fce7f3' }}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none"
+                             stroke="{{ ($pendingPatrolRegistrations ?? 0) > 0 ? '#991b1b' : '#7B1A2E' }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <line x1="19" y1="8" x2="19" y2="14"/>
+                            <line x1="22" y1="11" x2="16" y2="11"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <div style="font-size:2rem; font-weight:900; color:#1e293b; line-height:1;">{{ $pendingPatrolRegistrations ?? 0 }}</div>
+                        <div style="font-size:.72rem; color:#64748b; margin-top:2px;">Awaiting badge/photo review</div>
+                        <div style="font-size:.78rem; font-weight:700; color:#7B1A2E; margin-top:1px;">Pending Patrol Registrations</div>
+                    </div>
+                </div>
+            </div>
+        </a>
     </div>
 
 </div>
@@ -92,7 +125,7 @@
                     <td style="padding:11px 16px; color:#1e293b; border-bottom:1px solid #f5eeef;">{{ $incident->rider?->full_name ?? 'N/A' }}</td>
                     <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $incident->address ?? 'N/A' }}</td>
                     <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $incident->rider?->phone_number ?? 'N/A' }}</td>
-                    <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $incident->rider?->date_of_birth ? now()->diffInYears($incident->rider->date_of_birth) : 'N/A' }}</td>
+                    <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $incident->rider?->date_of_birth ? $incident->rider->date_of_birth->age : 'N/A' }}</td>
                     <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $incident->rider?->address ?? 'N/A' }}</td>
                 </tr>
                 @empty
@@ -127,7 +160,7 @@
                 <tr>
                     <td style="padding:11px 16px; color:#1e293b; border-bottom:1px solid #f5eeef; font-family:monospace; font-size:.8rem;">{{ $rider->device?->device_code ?? 'No device' }}</td>
                     <td style="padding:11px 16px; color:#1e293b; border-bottom:1px solid #f5eeef; font-weight:500;">{{ $rider->full_name }}</td>
-                    <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $rider->date_of_birth ? now()->diffInYears($rider->date_of_birth) : 'N/A' }}</td>
+                    <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $rider->date_of_birth ? $rider->date_of_birth->age : 'N/A' }}</td>
                     <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $rider->phone_number ?? 'N/A' }}</td>
                 </tr>
                 @empty

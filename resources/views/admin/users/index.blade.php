@@ -12,7 +12,7 @@
                 <div class="d-flex align-items-center gap-2">
                     <span class="status-badge badge-toc">TOC</span>
                     TOC Officers
-                    <span style="color:#94a3b8; font-size:.8rem; font-weight:400;">({{ $tocOfficers->count() }})</span>
+                    <span style="color:#64748b; font-size:.8rem; font-weight:400;">({{ $tocOfficers->count() }})</span>
                 </div>
                 <a href="{{ route('admin.invitations.index') }}"
                    style="font-size:.8rem; color:#3b82f6; text-decoration:none;">
@@ -59,7 +59,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="text-center py-4" style="color:#94a3b8;">
+                            <td colspan="7" class="text-center py-4" style="color:#64748b;">
                                 No TOC officers yet. Invite one to get started.
                             </td>
                         </tr>
@@ -77,7 +77,7 @@
                 <div class="d-flex align-items-center gap-2">
                     <span class="status-badge badge-inv">INV</span>
                     Investigation Officers
-                    <span style="color:#94a3b8; font-size:.8rem; font-weight:400;">({{ $invOfficers->count() }})</span>
+                    <span style="color:#64748b; font-size:.8rem; font-weight:400;">({{ $invOfficers->count() }})</span>
                 </div>
                 <a href="{{ route('admin.invitations.index') }}"
                    style="font-size:.8rem; color:#3b82f6; text-decoration:none;">
@@ -124,7 +124,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="text-center py-4" style="color:#94a3b8;">
+                            <td colspan="7" class="text-center py-4" style="color:#64748b;">
                                 No investigation officers yet.
                             </td>
                         </tr>

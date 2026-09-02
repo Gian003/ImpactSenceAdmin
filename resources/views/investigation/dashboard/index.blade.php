@@ -38,7 +38,14 @@
                     </svg>
                 </div>
                 <div>
-                    <div style="font-size:2rem; font-weight:900; color:#1e293b; line-height:1;">{{ $totalAccidents ?? 0 }}</div>
+                    <div style="font-size:2rem; font-weight:900; color:#1e293b; line-height:1; display:flex; align-items:baseline; gap:8px;">
+                        {{ $totalAccidents ?? 0 }}
+                        {{-- Only shown when there's something to flag — a "+0
+                             today" badge on every quiet day is just noise. --}}
+                        @if(($accidentsToday ?? 0) > 0)
+                        <span style="font-size:.72rem; font-weight:700; color:#dc2626;">+{{ $accidentsToday }} today</span>
+                        @endif
+                    </div>
                     <div style="font-size:.72rem; color:#64748b; margin-top:2px;">Registered Rides in the System</div>
                     <div style="font-size:.78rem; font-weight:700; color:#7B1A2E; margin-top:1px;">Total Accident Detected</div>
                 </div>
@@ -92,7 +99,7 @@
                     <td style="padding:11px 16px; color:#1e293b; border-bottom:1px solid #f5eeef; font-weight:500;">{{ $incident->rider?->full_name ?? 'N/A' }}</td>
                     <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $incident->address ?? 'N/A' }}</td>
                     <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $incident->rider?->phone_number ?? 'N/A' }}</td>
-                    <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $incident->rider?->date_of_birth ? now()->diffInYears($incident->rider->date_of_birth) : 'N/A' }}</td>
+                    <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $incident->rider?->date_of_birth ? $incident->rider->date_of_birth->age : 'N/A' }}</td>
                     <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $incident->rider?->address ?? 'N/A' }}</td>
                 </tr>
                 @empty
@@ -125,7 +132,7 @@
                 <tr>
                     <td style="padding:11px 16px; color:#1e293b; border-bottom:1px solid #f5eeef; font-family:monospace; font-size:.8rem;">{{ $rider->device?->device_code ?? 'No device' }}</td>
                     <td style="padding:11px 16px; color:#1e293b; border-bottom:1px solid #f5eeef; font-weight:500;">{{ $rider->full_name }}</td>
-                    <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $rider->date_of_birth ? now()->diffInYears($rider->date_of_birth) : 'N/A' }}</td>
+                    <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $rider->date_of_birth ? $rider->date_of_birth->age : 'N/A' }}</td>
                     <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">{{ $rider->phone_number ?? 'N/A' }}</td>
                 </tr>
                 @empty

@@ -136,7 +136,7 @@
         {{-- Top bar --}}
         <div class="topbar">
             <div style="font-weight:700; font-size:.95rem; color:#7B1A2E; letter-spacing:.04em; text-transform:uppercase;">@yield('title', 'Dashboard')</div>
-            <div style="font-size:.78rem; color:#94a3b8;">
+            <div style="font-size:.78rem; color:#64748b;">
                 ImpactSense Command Center &mdash; PNP Urdaneta
             </div>
         </div>

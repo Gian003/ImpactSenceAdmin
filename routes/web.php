@@ -172,7 +172,9 @@ Route::prefix('toc')
             return view('toc.dashboard.index', [
                 'totalRiders'    => User::where('role', 'rider')->count(),
                 'totalAccidents' => Incident::count(),
+                'accidentsToday' => Incident::whereDate('created_at', today())->count(),
                 'activeDevices'  => Device::where('is_active', true)->count(),
+                'pendingPatrolRegistrations' => \App\Models\PatrolRegistration::where('status', 'pending')->count(),
                 'recentIncidents' => Incident::with('rider')->latest()->limit(5)->get(),
                 'recentRiders'    => User::with('device')->where('role', 'rider')->latest()->limit(5)->get(),
             ]);
@@ -221,8 +223,20 @@ Route::prefix('toc')
                 ->limit(10)
                 ->get();
 
+            // Ties each row to the High/Average/Low legend the panel already
+            // shows (previously decorative — it never reflected the actual
+            // rows). Relative to the busiest area in *this* result set rather
+            // than a hardcoded incident count, so the tiers stay meaningful
+            // whether the city's had 3 accidents this month or 300.
+            $maxHotspotCount = $incidentHotspots->max('incident_count') ?: 1;
+            $incidentHotspots = $incidentHotspots->map(function ($h) use ($maxHotspotCount) {
+                $ratio = $h->incident_count / $maxHotspotCount;
+                $h->tier = $ratio >= 0.66 ? 'high' : ($ratio >= 0.33 ? 'average' : 'low');
+                return $h;
+            });
+
             return view('toc.location.index', [
-                'pendingIncidents' => Incident::with('rider')
+                'pendingIncidents' => Incident::with(['rider', 'patrolUnit'])
                     ->whereIn('status', ['pending', 'dispatched'])
                     ->latest()->take(10)->get(),
                 'patrollers' => PatrolUnit::all(),
@@ -377,7 +391,7 @@ Route::prefix('toc')
         // ── Patrol registrations ──────────────────────────────────────────────
         Route::get('/patrol-registrations', function () {
             return view('toc.patrol-registrations.index', [
-                'pending'  => \App\Models\PatrolRegistration::where('status', 'pending')->latest()->get(),
+                'pending'  => \App\Models\PatrolRegistration::where('status', 'pending')->with('roster')->latest()->get(),
                 'reviewed' => \App\Models\PatrolRegistration::whereIn('status', ['approved','rejected'])
                                   ->with('reviewer')->latest()->limit(20)->get(),
             ]);
@@ -386,22 +400,26 @@ Route::prefix('toc')
         Route::post('/patrol-registrations/{registration}/approve', function (
             Request $request, \App\Models\PatrolRegistration $registration
         ) {
-            $data = $request->validate([
-                'badge_number' => ['required', 'string', 'unique:patrol_units,badge_number'],
-                'rank'         => ['required', 'string'],
-            ]);
-
             if ($registration->status !== 'pending') {
                 return back()->withErrors(['error' => 'Registration already reviewed.']);
+            }
+
+            // badge_number and rank were already validated against
+            // personnel_roster at registration time (PatrolRegistrationController::store)
+            // — nothing left for the admin to type in here, only confirm.
+            // Still re-check uniqueness against patrol_units in case another
+            // registration for the same badge somehow got approved first.
+            if (\App\Models\PatrolUnit::where('badge_number', $registration->badge_number)->exists()) {
+                return back()->withErrors(['error' => 'This badge number already has an active patrol account.']);
             }
 
             // Create the patrol unit account
             $patrol = \App\Models\PatrolUnit::create([
                 'full_name'    => $registration->first_name . ' ' . $registration->last_name,
-                'badge_number' => $data['badge_number'],
+                'badge_number' => $registration->badge_number,
                 'email'        => $registration->email,
                 'password'     => $registration->password, // already hashed
-                'rank'         => $data['rank'],
+                'rank'         => $registration->rank,
                 'mobile_number'=> $registration->phone_number,
                 'fcm_token'    => $registration->fcm_token,
                 'status'       => 'off_duty',
@@ -410,8 +428,6 @@ Route::prefix('toc')
             // Mark registration approved
             $registration->update([
                 'status'      => 'approved',
-                'badge_number'=> $data['badge_number'],
-                'rank'        => $data['rank'],
                 'reviewed_by' => Auth::guard('toc')->id(),
                 'reviewed_at' => now(),
             ]);
@@ -422,7 +438,7 @@ Route::prefix('toc')
                     $registration->fcm_token,
                     'Registration Approved',
                     'Your patrol account has been approved. You can now log in.',
-                    ['type' => 'registration_approved', 'badge_number' => $data['badge_number']]
+                    ['type' => 'registration_approved', 'badge_number' => $registration->badge_number]
                 );
             }
 
@@ -460,6 +476,41 @@ Route::prefix('toc')
             return back()->with('success', "Registration for {$registration->full_name} rejected.");
         })->name('patrol-registrations.reject');
 
+        // ── Personnel Roster ────────────────────────────────────────────────
+        // The authoritative list new patrol registrations are checked
+        // against (see PatrolRegistrationController::store) — populated here
+        // by TOC staff from real PNP Urdaneta personnel records, kept
+        // separate from the registration flow itself.
+        Route::get('/personnel-roster', function () {
+            return view('toc.personnel-roster.index', [
+                'roster' => \App\Models\PersonnelRoster::latest()->get(),
+                'ranks'  => \App\Models\PersonnelRoster::RANKS,
+            ]);
+        })->name('personnel-roster.index');
+
+        Route::post('/personnel-roster', function (Request $request) {
+            $data = $request->validate([
+                'badge_number' => ['required', 'string', 'max:50', 'unique:personnel_roster,badge_number'],
+                'full_name'    => ['required', 'string', 'max:150'],
+                'rank'         => ['required', 'string', \Illuminate\Validation\Rule::in(\App\Models\PersonnelRoster::RANKS)],
+                'photo'        => ['nullable', 'image', 'max:5120'],
+            ]);
+
+            if ($request->hasFile('photo')) {
+                $data['reference_photo_path'] = $request->file('photo')->store('personnel-roster-photos', 'public');
+            }
+            unset($data['photo']);
+
+            \App\Models\PersonnelRoster::create($data);
+
+            return back()->with('success', "{$data['full_name']} added to the personnel roster.");
+        })->name('personnel-roster.store');
+
+        Route::post('/personnel-roster/{roster}/toggle', function (\App\Models\PersonnelRoster $roster) {
+            $roster->update(['is_active' => ! $roster->is_active]);
+            return back()->with('success', $roster->full_name . ($roster->is_active ? ' reactivated.' : ' deactivated.'));
+        })->name('personnel-roster.toggle');
+
         Route::get('/patrollers', function () {
             return view('toc.patrollers.index', [
                 'patrollers' => PatrolUnit::all(),
@@ -496,7 +547,7 @@ Route::prefix('toc')
                 )
                 ->groupBy('hour')->orderBy('hour')->get()->keyBy('hour');
 
-            $heatmapPoints = Incident::select('latitude', 'longitude', 'severity')
+            $heatmapPoints = Incident::select('latitude', 'longitude', 'severity', 'type', 'address', 'created_at')
                 ->whereNotNull('latitude')->whereNotNull('longitude')->get();
 
             $criticalCount  = $bySeverity->where('severity', 'critical')->sum('total');
@@ -518,6 +569,7 @@ Route::prefix('investigation')
             return view('investigation.dashboard.index', [
                 'totalRiders'    => User::where('role', 'rider')->count(),
                 'totalAccidents' => Incident::count(),
+                'accidentsToday' => Incident::whereDate('created_at', today())->count(),
                 'activeDevices'  => Device::where('is_active', true)->count(),
                 'recentIncidents' => Incident::with('rider')->latest()->limit(5)->get(),
                 'recentRiders'    => User::with('device')->where('role', 'rider')->latest()->limit(5)->get(),
@@ -686,7 +738,7 @@ Route::prefix('investigation')
                 )
                 ->groupBy('hour')->orderBy('hour')->get()->keyBy('hour');
 
-            $heatmapPoints = Incident::select('latitude', 'longitude', 'severity')
+            $heatmapPoints = Incident::select('latitude', 'longitude', 'severity', 'type', 'address', 'created_at')
                 ->whereNotNull('latitude')->whereNotNull('longitude')->get();
 
             $criticalCount = $bySeverity->where('severity', 'critical')->sum('total');

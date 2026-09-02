@@ -18,7 +18,7 @@
                         </label>
                         <input type="email" name="email" value="{{ old('email') }}"
                                class="form-control" placeholder="officer@pnp-urdaneta.gov.ph" required>
-                        <div style="font-size:.75rem; color:#94a3b8; margin-top:4px;">
+                        <div style="font-size:.75rem; color:#64748b; margin-top:4px;">
                             The invitation link will be sent to this address.
                         </div>
                     </div>
@@ -59,7 +59,7 @@
         <div class="card-panel">
             <div class="card-panel-header">
                 All Invitations
-                <span style="color:#94a3b8; font-size:.8rem; font-weight:400;">
+                <span style="color:#64748b; font-size:.8rem; font-weight:400;">
                     ({{ $invitations->count() }} total)
                 </span>
             </div>
@@ -93,7 +93,7 @@
                                 </span>
                             </td>
                             <td style="color:#64748b;">{{ $inv->invitedBy?->full_name ?? '—' }}</td>
-                            <td style="color:#94a3b8; font-size:.78rem;">
+                            <td style="color:#64748b; font-size:.78rem;">
                                 {{ $inv->expires_at->format('M d, Y H:i') }}
                             </td>
                             <td>
@@ -108,13 +108,13 @@
                                     </button>
                                 </form>
                                 @else
-                                    <span style="color:#cbd5e1; font-size:.78rem;">—</span>
+                                    <span style="color:#6b7280; font-size:.78rem;">—</span>
                                 @endif
                             </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="6" class="text-center py-4" style="color:#94a3b8;">
+                            <td colspan="6" class="text-center py-4" style="color:#64748b;">
                                 No invitations sent yet.
                             </td>
                         </tr>

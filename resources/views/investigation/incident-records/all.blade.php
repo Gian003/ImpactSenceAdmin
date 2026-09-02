@@ -66,7 +66,7 @@
                             #{{ $record->incident->id }} — {{ ucfirst($record->incident->type) }}
                             ({{ $record->incident->rider?->full_name ?? 'Unknown rider' }})
                         @else
-                            <span class="status-badge" style="border-color:#9ca3af; color:#6b7280; font-size:.72rem;">Not linked</span>
+                            <span class="status-badge" style="border-color:#6b7280; color:#6b7280; font-size:.72rem;">Not linked</span>
                         @endif
                     </td>
                     <td>

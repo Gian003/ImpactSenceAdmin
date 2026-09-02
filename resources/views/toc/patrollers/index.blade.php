@@ -19,10 +19,11 @@
             </thead>
             <tbody>
                 @forelse($patrollers ?? [] as $patroller)
-                <tr>
+                <tr @if($patroller->current_latitude) data-lat="{{ $patroller->current_latitude }}" data-lng="{{ $patroller->current_longitude }}" @endif>
                     <td style="padding:11px 16px; color:#1e293b; font-weight:500; border-bottom:1px solid #f5eeef;">{{ $patroller->full_name }}</td>
                     <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">
-                        {{ $patroller->current_latitude ? round($patroller->current_latitude,4).'°N, '.round($patroller->current_longitude,4).'°E' : '—' }}
+                        <span class="loc-text">{{ $patroller->current_latitude ? round($patroller->current_latitude,4).'°N, '.round($patroller->current_longitude,4).'°E' : '—' }}</span>
+                        <span class="geo-text" style="display:block; font-size:.86rem; color:#64748b;"></span>
                     </td>
                     <td style="padding:11px 16px; border-bottom:1px solid #f5eeef;">
                         @php
@@ -50,3 +51,7 @@
 </div>
 
 @endsection
+
+@push('scripts')
+<script src="{{ asset('js/toc/patrollers.js') }}?v={{ filemtime(public_path('js/toc/patrollers.js')) }}"></script>
+@endpush

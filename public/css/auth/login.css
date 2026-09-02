@@ -58,7 +58,7 @@ body {
 
 .brand-logo  { width: 64px; height: 64px; object-fit: contain; margin-bottom: 6px; }
 .brand-name  { color: #fff; font-size: 1.05rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 2px; }
-.brand-sub   { color: rgba(255,255,255,.55); font-size: .78rem; margin-bottom: 28px; }
+.brand-sub   { color: rgba(255,255,255,.6); font-size: .78rem; margin-bottom: 28px; }
 
 .field-wrap {
     width: 100%;
@@ -81,7 +81,14 @@ body {
     font-size: .9rem;
     padding: 13px 0;
 }
-.field-wrap input::placeholder { color: rgba(255,255,255,.4); }
+.field-wrap input::placeholder { color: rgba(255,255,255,.6); }
+
+/* Visible focus indicator on the whole pill, since the input itself has
+   outline:none — keyboard users need some visible sign of where they are. */
+.field-wrap:focus-within {
+    outline: 2px solid #F4C5D0;
+    outline-offset: 2px;
+}
 
 .btn-login {
     width: 100%;
@@ -108,7 +115,7 @@ body {
     margin-bottom: 4px;
 }
 .remember-row label {
-    color: rgba(255,255,255,.55);
+    color: rgba(255,255,255,.6);
     font-size: .78rem;
     display: flex;
     align-items: center;
@@ -116,7 +123,7 @@ body {
     cursor: pointer;
 }
 .remember-row a {
-    color: rgba(255,255,255,.55);
+    color: rgba(255,255,255,.6);
     font-size: .78rem;
     text-decoration: none;
 }
