@@ -623,6 +623,78 @@ Route::prefix('investigation')
             ]);
         })->name('incident-records.reprint');
 
+        // Real PDF instead of relying on the browser's own Print dialog to
+        // turn the HTML page into a printout — same view, same JS prefill
+        // (Browsershot runs actual Chromium, so the savedData-filling script
+        // executes exactly like it would in a normal browser tab), just
+        // captured server-side into a document with consistent output
+        // regardless of whoever's browser/printer is involved.
+        Route::get('/incident-records/{incidentRecord}/pdf', function (\App\Models\IncidentRecord $incidentRecord) use ($irfIncidentOptions) {
+            $html = view('investigation.incident-records.index', [
+                'incident'  => $incidentRecord->incident?->load(['rider', 'patrolUnit']),
+                'savedData' => $incidentRecord->data,
+                'recordId'  => $incidentRecord->id,
+                'incidents' => $irfIncidentOptions(),
+            ])->render();
+
+            // setNodeBinary/setNpmBinary explicitly, and setBinPath for
+            // puppeteer's own CLI — on Windows, node.exe lives under
+            // "C:\Program Files\nodejs\", and Browsershot's own
+            // auto-detection doesn't reliably re-quote a path containing a
+            // space when it shells out via Symfony Process. Left
+            // unspecified, that's what actually produced the "opens a
+            // PowerShell window and hangs forever" symptom — the spawned
+            // process was being invoked against a mis-parsed path, not
+            // running the real binary at all. A bounded timeout also means
+            // a failure surfaces as an actual error instead of a page that
+            // never finishes loading.
+            $pdf = \Spatie\Browsershot\Browsershot::html($html)
+                ->setNodeBinary('C:\\Program Files\\nodejs\\node.exe')
+                ->setNpmBinary('C:\\Program Files\\nodejs\\npm.cmd')
+                ->setIncludePath('C:\\Program Files\\nodejs;' . getenv('PATH'))
+                ->noSandbox()
+                ->timeout(60)
+                ->showBackground()
+                ->waitUntilNetworkIdle()
+                ->format('Legal')
+                ->pdf();
+
+            return response($pdf, 200, [
+                'Content-Type'        => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="IRF-'.$incidentRecord->id.'.pdf"',
+            ]);
+        })->name('incident-records.pdf');
+
+        // Simpler entry form — same store() endpoint and same saved data as
+        // the official form, just grouped by real-world concept (who/what
+        // happened/who else was involved) instead of the dense ITEM
+        // A/B/C/D/E layout, so filling it in doesn't mean facing all ~60
+        // official fields at once. The official form is untouched and still
+        // where review/print/PDF happens. Registered before the {incident}
+        // wildcard below for the same reason "all"/"history" are — otherwise
+        // "simple" would get swallowed as an incident ID.
+        Route::get('/incident-records/simple', fn () => view('investigation.incident-records.simple', [
+            'incident'  => null,
+            'incidents' => $irfIncidentOptions(),
+        ]))->name('incident-records.simple.index');
+
+        Route::get('/incident-records/simple/history/{incidentRecord}', function (\App\Models\IncidentRecord $incidentRecord) use ($irfIncidentOptions) {
+            return view('investigation.incident-records.simple', [
+                'incident'  => $incidentRecord->incident?->load(['rider', 'patrolUnit']),
+                'savedData' => $incidentRecord->data,
+                'recordId'  => $incidentRecord->id,
+                'incidents' => $irfIncidentOptions(),
+            ]);
+        })->name('incident-records.simple.reprint');
+
+        Route::get('/incident-records/simple/{incident}', function (Incident $incident) use ($irfIncidentOptions) {
+            $incident->load(['rider', 'patrolUnit']);
+            return view('investigation.incident-records.simple', [
+                'incident'  => $incident,
+                'incidents' => $irfIncidentOptions(),
+            ]);
+        })->name('incident-records.simple.show');
+
         // Same form, prefilled from a real incident — reached via "Generate"
         // links on the Incidents list / Incident Report page.
         Route::get('/incident-records/{incident}', function (Incident $incident) use ($irfIncidentOptions) {
@@ -687,11 +759,22 @@ Route::prefix('investigation')
                 'reportedBy'   => $incident->patrolUnit?->full_name ?? 'TOC System',
                 'unit'         => $incident->patrolUnit?->badge_number ?? 'N/A',
                 'description'  => ucfirst($incident->type).' incident reported at '.$incident->address.'.',
-                'vehicles'     => 1,
-                'injured'      => 1,
+                // Null until investigation staff fill them in via the form
+                // below — an IoT crash-detection report can't know any of
+                // these at the moment it's created, so there's no honest
+                // default to fall back to.
+                'vehicles'     => $incident->vehicles_involved,
+                'injured'      => $incident->injured_count,
                 'severity'     => ucfirst($incident->severity),
-                'roadCondition'=> 'N/A',
-                'weather'      => 'N/A',
+                'roadCondition'=> $incident->road_condition,
+                'weather'      => $incident->weather_condition,
+                // Real column, previously never shown anywhere on this page
+                // — including "false_alarm", which is exactly the kind of
+                // thing someone reading a report needs to see at a glance.
+                'status'       => $incident->status,
+                'notes'        => $incident->notes,
+                'deviceCode'   => $incident->device?->device_code,
+                'deviceModel'  => $incident->device?->model,
                 'location'     => $incident->address ?? 'N/A',
                 'lat'          => (float) $incident->latitude,
                 'lng'          => (float) $incident->longitude,
@@ -702,9 +785,25 @@ Route::prefix('investigation')
                 ])->filter(fn($e) => $e['time'] !== '—'),
             ]);
         })->name('incident-report.show');
+
+        Route::post('/incident-report/{incident}/details', function (Request $request, Incident $incident) {
+            $data = $request->validate([
+                'vehicles_involved' => ['nullable', 'integer', 'min:0', 'max:255'],
+                'injured_count'     => ['nullable', 'integer', 'min:0', 'max:255'],
+                'road_condition'    => ['nullable', 'string', 'in:Dry,Wet,Icy,Under Repair'],
+                'weather_condition' => ['nullable', 'string', 'in:Clear,Cloudy,Rainy,Foggy,Stormy'],
+            ]);
+            $incident->update($data);
+            return back()->with('success', 'Incident details updated.');
+        })->name('incident-report.update-details');
         Route::get('/devices', function () {
+            $riders = User::with('device')->where('role', 'rider')->latest()->get();
             return view('investigation.devices.index', [
-                'riders' => User::with('device')->where('role', 'rider')->latest()->get(),
+                'riders'         => $riders,
+                'totalRiders'    => $riders->count(),
+                'totalDevices'   => Device::count(),
+                'activeDevices'  => Device::where('is_active', true)->count(),
+                'pairedDevices'  => Device::whereNotNull('paired_at')->count(),
             ]);
         })->name('devices.index');
 

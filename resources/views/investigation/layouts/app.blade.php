@@ -21,7 +21,7 @@
             <div class="d-flex align-items-center gap-2 px-3 py-3 border-bottom border-white border-opacity-10">
                 <img src="{{ asset('images/pnp_urdaneta_logo.png') }}" alt="PNP Urdaneta" width="50" height="50"
                     style="object-fit:contain; flex-shrink:0;">
-                <div class="text-white fw-bold lh-sm" style="font-size:.88rem; letter-spacing:.05em;">
+                <div class="text-white fw-bold lh-sm" style="font-size:.94rem; letter-spacing:.05em;">
                     PNP<br>URDANETA
                 </div>
             </div>
@@ -115,10 +115,10 @@
                 <div class="d-flex align-items-center gap-2 mb-2">
                     <img src="{{ asset('images/investigation_logo.png') }}" alt="PNP Investigation" width="38"
                         height="38" style="object-fit:contain; flex-shrink:0; border-radius:50%;">
-                    <div class="text-white lh-sm" style="font-size:.78rem; overflow:hidden;">
-                        <div class="fw-bold" style="font-size:.82rem; letter-spacing:.02em;">Investigation</div>
+                    <div class="text-white lh-sm" style="font-size:.86rem; overflow:hidden;">
+                        <div class="fw-bold" style="font-size:.9rem; letter-spacing:.02em;">Investigation</div>
                         <div
-                            style="opacity:.65; font-size:.7rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                            style="opacity:.65; font-size:.78rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                             {{ Auth::guard('investigation')->user()->full_name ?? 'Officer' }}
                         </div>
                     </div>
@@ -130,7 +130,7 @@
                     <button type="submit"
                         class="btn btn-sm w-100 d-flex align-items-center justify-content-center gap-1"
                         style="background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.2);
-                               font-size:.76rem; font-weight:600; border-radius:8px; padding:.4rem;">
+                               font-size:.84rem; font-weight:600; border-radius:8px; padding:.45rem;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                             viewBox="0 0 24 24">
@@ -167,7 +167,7 @@
                     <ul class="dropdown-menu dropdown-menu-end shadow border-0"
                         id="notificationList" style="min-width:260px; max-height:340px; overflow-y:auto;">
                         <li id="notificationEmpty">
-                            <span class="dropdown-item text-muted" style="font-size:.82rem;">No notifications yet</span>
+                            <span class="dropdown-item text-muted" style="font-size:.92rem;">No notifications yet</span>
                         </li>
                     </ul>
                 </div>

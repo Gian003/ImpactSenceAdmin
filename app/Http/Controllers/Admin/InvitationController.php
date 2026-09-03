@@ -45,7 +45,7 @@ class InvitationController extends Controller
             'invited_by' => Auth::guard('admin')->id(),
             'email'      => $data['email'],
             'role'       => $data['role'],
-            'token'      => Str::random(64),
+            'token'      => Str::random(32),
             'expires_at' => now()->addHours(24),
         ]);
 

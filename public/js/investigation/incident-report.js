@@ -45,7 +45,7 @@ function initReportMap() {
                 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
                 <link href="${window.IncidentReportConfig.incidentReportCssUrl}" rel="stylesheet">
                 <style>
-                    .report-actions { display:none; }
+                    .report-actions, .involved-edit-toggle, .involved-edit-form { display:none; }
                     body { padding: 24px; background:#fff; }
                 </style>
             </head><body>${content}</body></html>
@@ -54,3 +54,21 @@ function initReportMap() {
         win.focus();
         setTimeout(() => { win.print(); win.close(); }, 800);
     }
+
+// Vehicle/Injured/Road Condition/Weather edit toggle — these fields can't be
+// known when an IoT crash report is first created, so they start out as
+// "Not yet recorded" and this just swaps the read-only list for the form
+// that fills them in, rather than always showing an open form.
+const involvedEditToggle = document.getElementById('involvedEditToggle');
+const involvedEditForm   = document.getElementById('involvedEditForm');
+const involvedDisplay    = document.getElementById('involvedDisplay');
+const involvedEditCancel = document.getElementById('involvedEditCancel');
+
+function toggleInvolvedEdit(show) {
+    if (involvedEditForm) involvedEditForm.hidden = !show;
+    if (involvedDisplay) involvedDisplay.hidden = show;
+    if (involvedEditToggle) involvedEditToggle.setAttribute('aria-expanded', String(show));
+}
+
+if (involvedEditToggle) involvedEditToggle.addEventListener('click', () => toggleInvolvedEdit(true));
+if (involvedEditCancel) involvedEditCancel.addEventListener('click', () => toggleInvolvedEdit(false));

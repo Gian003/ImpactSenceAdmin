@@ -1,18 +1,39 @@
 /* Top action bar */
 .report-actions {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 20px;
 }
 
+.report-actions-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+/* Severity chip — same critical/high/medium/low color language as the map
+   markers and analytics charts elsewhere in the app (colors computed in the
+   view, since they depend on the incident's actual severity). */
+.severity-badge {
+    display: inline-block;
+    border-radius: 9999px;
+    padding: .4rem 1.1rem;
+    font-size: .92rem;
+    font-weight: 700;
+}
+
 .btn-report {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     border: 1.5px solid #c8d8e4;
     background: #fff;
     color: #1b3d52;
     border-radius: .5rem;
-    padding: .45rem 1.6rem;
-    font-size: .88rem;
+    padding: .5rem 1.7rem;
+    font-size: .98rem;
     font-weight: 600;
     cursor: pointer;
     transition: background .15s, color .15s;
@@ -22,6 +43,11 @@
     background: #1b3d52;
     color: #fff;
     border-color: #1b3d52;
+}
+
+.btn-report-save {
+    background: #1b3d52;
+    color: #fff;
 }
 
 /* Main grid layout */
@@ -38,12 +64,14 @@
     gap: 18px;
 }
 
-/* Cards */
+/* Cards — a subtle shadow so they lift off the page's gray background
+   instead of just being a flat outlined box, which is all they had before. */
 .report-card {
     background: #fff;
     border: 1.5px solid #d1dde6;
     border-radius: .85rem;
     padding: 22px 24px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .06), 0 1px 2px rgba(15, 23, 42, .04);
 }
 
 /* Summary card */
@@ -59,73 +87,182 @@
     color: #1a1a1a;
 }
 
-.summary-field {
-    margin-bottom: 12px;
-}
-
-.summary-field .field-label {
-    font-size: .88rem;
-    font-weight: 700;
-    color: #111827;
-    margin-bottom: 2px;
-}
-
-.summary-field .field-value {
-    font-size: .85rem;
-    color: #374151;
-}
-
-/* Details card */
+/* Details card — divider under the title so the header reads as distinct
+   from the body content below it, instead of everything just stacking with
+   nothing marking where one section ends and the next begins. Used twice in
+   the Incident Details card (once for the card title, once for "Involved"),
+   so each subsection gets its own clear break. */
 .details-section-title {
-    font-size: .92rem;
+    font-size: 1.08rem;
     font-weight: 700;
     color: #111827;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eef2f6;
 }
 
 .details-description {
-    font-size: .83rem;
+    font-size: .96rem;
     color: #4b5563;
-    line-height: 1.55;
+    line-height: 1.6;
     margin-bottom: 18px;
 }
 
-.involved-list {
-    list-style: disc;
-    padding-left: 18px;
-    margin: 0;
+/* Label/value tables — Incident Summary and Involved both use this. A real
+   <table> (th scope="row" + td) instead of a colon-separated list: cleaner
+   aligned columns, and screen readers announce "Full Name: Gian Rodriguez"
+   correctly from the semantics instead of relying on a literal ": " glyph
+   in the text. */
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-.involved-list li {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: .84rem;
+.report-table th,
+.report-table td {
+    text-align: left;
+    padding: 11px 0;
+    font-size: .96rem;
+    border-bottom: 1px solid #eef2f6;
+    font-weight: 400;
+}
+
+.report-table tr:last-child th,
+.report-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Row-header cells (Full Name / Vehicle / etc.) — only inside tbody, since
+   the IRF table below reuses .report-table but its <th> cells are real
+   column headers in a <thead>, not row labels, and shouldn't get this
+   fixed-width/bold treatment. */
+.report-table tbody th {
+    color: #111827;
+    font-weight: 700;
+    width: 42%;
+    white-space: nowrap;
+    padding-right: 12px;
+}
+
+.report-table td {
     color: #374151;
-    padding: 4px 0;
 }
 
-.involved-list li .inv-label {
+/* IRF table — a real multi-column data table, so its header row looks like
+   one (uppercase, muted, heavier rule) instead of the tbody th styling
+   above. */
+.irf-table thead th {
+    font-size: .82rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #6b7280;
+    font-weight: 700;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+    padding-right: 16px;
+}
+
+.irf-table tbody tr {
+    transition: background .15s;
+}
+
+.irf-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+/* Printed vs. saved-only rows get the same green/left-accent distinction the
+   old row layout had — applied to the first cell since border-left on <tr>
+   itself doesn't render reliably with border-collapse. */
+.irf-table tbody tr td:first-child {
+    border-left: 3px solid transparent;
+    padding-left: 9px;
+}
+
+.irf-table tbody tr.irf-record-printed td:first-child {
+    border-left-color: #2a7c5b;
+}
+
+.irf-reopen-link {
+    color: #1b3d52;
+    font-weight: 600;
+    font-size: .9rem;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.irf-reopen-link:hover {
+    text-decoration: underline;
+}
+
+.involved-edit-toggle {
+    background: none;
+    border: none;
+    color: #1b3d52;
+    font-size: .88rem;
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: 0;
+}
+
+.involved-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px dashed #d1dde6;
+}
+
+.involved-edit-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.involved-edit-row label {
+    font-size: .94rem;
+    color: #374151;
     font-weight: 500;
 }
 
-.involved-list li .inv-value {
+.involved-edit-row input,
+.involved-edit-row select {
+    border: 1.5px solid #c8d8e4;
+    border-radius: .4rem;
+    padding: .35rem .7rem;
+    font-size: .94rem;
     color: #1f2937;
-    margin-left: 8px;
+    max-width: 170px;
+}
+
+.involved-edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.involved-edit-actions .btn-report {
+    padding: .4rem 1.3rem;
+    font-size: .92rem;
 }
 
 /* Timeline */
 .timeline-title {
-    font-size: .92rem;
+    font-size: 1.08rem;
     font-weight: 700;
     color: #111827;
     margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eef2f6;
 }
 
 .timeline-log {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     padding: 0 4px;
 }
 
@@ -133,51 +270,29 @@
     display: flex;
     align-items: flex-start;
     gap: 14px;
-    font-size: .83rem;
+    font-size: .95rem;
 }
 
 .timeline-time {
     color: #6b7280;
     white-space: nowrap;
-    min-width: 62px;
+    min-width: 70px;
     font-weight: 500;
 }
 
 .timeline-text {
     color: #374151;
-    line-height: 1.4;
-}
-
-/* Generated Incident Records rows — reuses .timeline-entry's layout but
-   these are actually clickable (reopen a saved IRF), unlike the read-only
-   activity log above, so they get a hover state and a left accent to signal
-   that difference instead of looking identical to inert log lines. */
-.irf-record-row {
-    border-left: 3px solid #b8cdd9;
-    padding: 8px 10px 8px 12px;
-    border-radius: 0 .4rem .4rem 0;
-    transition: background .15s, border-color .15s;
-}
-
-.irf-record-row:hover {
-    background: #f0f7fa;
-    border-left-color: #1b3d52;
-}
-
-.irf-record-row.irf-record-printed {
-    border-left-color: #2a7c5b;
-}
-
-.irf-record-row.irf-record-printed:hover {
-    background: #eef7f2;
+    line-height: 1.45;
 }
 
 /* Map */
 .map-title {
-    font-size: .92rem;
+    font-size: 1.08rem;
     font-weight: 700;
     color: #111827;
     margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eef2f6;
 }
 
 .map-container {
@@ -196,6 +311,8 @@
 @media print {
     /* Hide chrome */
     .report-actions,
+    .involved-edit-toggle,
+    .involved-edit-form,
     aside.sidebar,
     .d-flex.justify-content-between.align-items-center { display: none !important; }
 
@@ -214,6 +331,7 @@
         break-inside: avoid;
         margin-bottom: 12px;
         border: 1px solid #ccc;
+        box-shadow: none !important;
         page-break-inside: avoid;
     }
 

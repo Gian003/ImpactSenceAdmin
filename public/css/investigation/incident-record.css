@@ -1,3 +1,28 @@
+/* Step indicator — app chrome only, excluded from print (see @media print
+   below) same as the link-to-incident panel. */
+.irf-page-indicator {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    max-width: 860px;
+    margin: 0 auto 12px;
+    font-size: .82rem;
+    color: #94a3b8;
+}
+
+.irf-step {
+    font-weight: 600;
+}
+
+.irf-step.active {
+    color: #1b3d52;
+}
+
+.irf-step-sep {
+    color: #cbd5e1;
+}
+
 /* Page wrapper */
 .irf-page {
     background: #fff;
@@ -288,5 +313,14 @@
     .sidebar { display: none !important; }
     /* App-only controls that live inside .irf-printable for layout reasons
        but have no business on an official printed PNP form. */
-    .irf-link-panel, .irf-toast { display: none !important; }
+    .irf-link-panel, .irf-toast, .irf-page-indicator { display: none !important; }
+
+    /* Both pages always print together as one document, regardless of which
+       one is on-screen when Print/Save & Print is pressed — #page1 and
+       #page2 toggle via inline display:none (see goToPage() in
+       incident-records.js), which print inherits unless overridden here.
+       Without this, printing from page 2 silently produced a printout
+       missing the entire main form (parties, narrative, signatures). */
+    #page1, #page2 { display: block !important; }
+    #page1 { page-break-after: always; }
 }

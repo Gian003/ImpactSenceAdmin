@@ -24,7 +24,11 @@
 
 {{-- Hidden on the printed form itself (see @media print in
      incident-record.css) — just page chrome for finding past records. --}}
-<div class="text-end mb-2">
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <a href="{{ $incident ? route('investigation.incident-records.simple.show', $incident) : route('investigation.incident-records.simple.index') }}"
+       style="font-size:.82rem; color:#1b3d52; font-weight:600;">
+        &larr; Use Simple Form Instead
+    </a>
     <a href="{{ route('investigation.incident-records.all') }}" style="font-size:.82rem; color:#1b3d52; font-weight:600;">
         View All Saved Records →
     </a>
@@ -35,6 +39,17 @@
 <input type="hidden" name="record_id" value="{{ $recordId ?? '' }}">
 
 <div class="irf-printable">
+
+{{-- App-only step indicator — nothing else on this form previously showed
+     that a page 2 exists at all, or which step you're currently on; only a
+     BACK button on page 2 hinted there was a "before". Excluded from print
+     (see @media print in incident-record.css) same as the link-to-incident
+     panel, since it's navigation chrome, not part of the official form. --}}
+<div class="irf-page-indicator" id="irfPageIndicator">
+    <span class="irf-step active" data-step="1">① Main Form</span>
+    <span class="irf-step-sep">&mdash;</span>
+    <span class="irf-step" data-step="2">② Progress Report</span>
+</div>
 
 {{-- ══════════════════════════════════════════════════════
      PAGE 1 — IRF Main Form
@@ -253,6 +268,39 @@
             <td><span class="irf-label">Date and Time of Incident:</span><input class="irf-input" type="datetime-local" name="d_date_incident" value="{{ $incidentDateTime }}"></td>
             <td><span class="irf-label">Place of Incident: Barangay, Town/City, Province:</span><input class="irf-input" type="text" name="d_place_incident" value="{{ $incident?->address ?? '' }}"></td>
         </tr>
+        {{-- Prefilled from the linked incident's report data (see
+             investigation.incident-report.show) — otherwise this data was
+             captured on the Incident Report page but never actually made it
+             onto the official record itself. Same Dry/Wet/Icy/Under Repair
+             and Clear/Cloudy/Rainy/Foggy/Stormy vocabulary as that page, so
+             the two entry points can't drift into different wording for the
+             same incident. --}}
+        <tr>
+            <td colspan="3">
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:4px;">
+                    <div><span class="irf-label">Vehicles Involved:</span><input class="irf-input" type="number" min="0" name="vehicles_involved" value="{{ $incident?->vehicles_involved }}"></div>
+                    <div><span class="irf-label">Injured:</span><input class="irf-input" type="number" min="0" name="injured_count" value="{{ $incident?->injured_count }}"></div>
+                    <div>
+                        <span class="irf-label">Road Condition:</span>
+                        <select class="irf-input" name="road_condition">
+                            <option value=""></option>
+                            @foreach(['Dry', 'Wet', 'Icy', 'Under Repair'] as $opt)
+                            <option value="{{ $opt }}" @selected($incident?->road_condition === $opt)>{{ $opt }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <span class="irf-label">Weather:</span>
+                        <select class="irf-input" name="weather_condition">
+                            <option value=""></option>
+                            @foreach(['Clear', 'Cloudy', 'Rainy', 'Foggy', 'Stormy'] as $opt)
+                            <option value="{{ $opt }}" @selected($incident?->weather_condition === $opt)>{{ $opt }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+            </td>
+        </tr>
         <tr>
             <td colspan="3" style="font-size:.62rem; font-weight:700; padding:3px 5px; text-align:center;">
                 THE NARRATIVE OF INCIDENT OR EVENT, ANSWERING THE WHO, WHEN, WHERE, WHY AND WHO HOW OF REPORTING.
@@ -342,6 +390,16 @@
             <tr>
                 <th colspan="2">ITEM "E" — PROGRESS REPORT</th>
             </tr>
+            {{-- Real guidance, not just a placeholder — placeholder text
+                 never appears on a printed page (browsers don't render it
+                 for empty inputs), so it was invisible on every printed
+                 blank form. This row prints. --}}
+            <tr>
+                <td colspan="2" class="irf-instruction">
+                    Record all follow-up actions taken, evidence gathered, witnesses interviewed, and the current
+                    status of the case. Include the date and the officer or unit responsible for each entry.
+                </td>
+            </tr>
             <tr>
                 <th style="width:25%;">DATE</th>
                 <th>PROGRESS</th>
@@ -353,7 +411,11 @@
                     <input type="date" name="e_date" class="irf-input" style="width:100%; border:none; background:transparent; font-size:.8rem;">
                 </td>
                 <td style="vertical-align:top; padding:6px;">
-                    <textarea name="e_progress" class="irf-textarea" style="width:100%; height:480px; border:none; background:transparent; font-size:.8rem; resize:none; font-family:'Segoe UI',sans-serif;"
+                    {{-- No inline sizing here — .progress-table td textarea
+                         already sets height:100% to fill the cell; a stray
+                         inline height:480px used to fight that and leave a
+                         gap at the bottom (the cell itself is 520px). --}}
+                    <textarea name="e_progress" class="irf-textarea"
                               placeholder="Describe progress of investigation..."></textarea>
                 </td>
             </tr>
@@ -366,7 +428,7 @@
 <div class="irf-actions" style="gap:12px;">
     <button type="button" class="btn-irf-next" style="background:#6c757d;" onclick="goToPage(1)">BACK</button>
     <button type="button" class="btn-irf-next btn-irf-save" id="saveBtn">SAVE</button>
-    <button type="button" class="btn-irf-generate" id="saveAndPrintBtn">SAVE &amp; PRINT</button>
+    <button type="button" class="btn-irf-generate" id="saveAndPrintBtn">SAVE &amp; VIEW PDF</button>
 </div>
 </div>{{-- end page2 --}}
 
@@ -381,6 +443,9 @@
 <script>
     window.IncidentRecordsConfig = {
         savedData: @json($savedData ?? null),
+        // ':id' gets swapped for the real record id once SAVE & PRINT
+        // actually knows it (a brand-new record doesn't have one yet).
+        pdfUrlTemplate: @json(route('investigation.incident-records.pdf', ':id')),
     };
 </script>
 <script src="{{ asset('js/investigation/incident-records.js') }}?v={{ filemtime(public_path('js/investigation/incident-records.js')) }}"></script>

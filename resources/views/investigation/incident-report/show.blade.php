@@ -11,33 +11,83 @@
 
 @section('content')
 
+@if(session('success'))
+<div class="alert alert-success alert-dismissible py-2 mb-3" style="font-size:.95rem;">
+    {{ session('success') }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+@endif
+
+@if($errors->any())
+<div class="alert alert-danger alert-dismissible py-2 mb-3" style="font-size:.95rem;">
+    {{ $errors->first() }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+@endif
+
 @php
-    // These variables are passed in by the controller (see
-    // investigation.incident-report.show route in routes/web.php).
-    $fullName      = $fullName      ?? 'Rester Mendoza';
-    $datetime      = $datetime       ?? 'April 20, 10:30 AM';
-    $coordinates   = $coordinates    ?? '(15.9765° N, 120.5715° E)';
-    $reportedBy    = $reportedBy    ?? 'Pat. Reyes, Juan';
-    $unit          = $unit           ?? 'Patrol Car 01';
-    $description   = $description   ?? 'A collision between a motorcycle and a van near of the intersection of Brrgy. Cabuloan, Urdaneta City';
-    $vehicles      = $vehicles      ?? 2;
-    $injured       = $injured       ?? 1;
-    $severity      = $severity      ?? 'Moderate';
-    $roadCondition = $roadCondition ?? 'Wet';
-    $weather       = $weather       ?? 'Cloudy';
-    $location      = $location      ?? 'Brgy. Cabuloan, Urdaneta City';
-    $lat           = $lat           ?? 15.963;
-    $lng           = $lng           ?? 120.553;
-    $timeline      = $timeline      ?? [];
+    // Every key here is always supplied by the controller (see
+    // investigation.incident-report.show in routes/web.php) — $incident is
+    // route-model-bound, so there's no "missing incident" case to fall back
+    // for. vehicles/injured/roadCondition/weather are the exception: those
+    // are genuinely nullable (an IoT crash report can't know them at the
+    // moment it's created) and are handled as an explicit "not yet
+    // recorded" state below rather than masked with a fake default.
+    $timeline = $timeline ?? [];
+
+    // Matches the severity color language used everywhere else in the app
+    // (map markers, analytics charts) — see public/js/toc/analytics.js.
+    $severityColors = [
+        'critical' => ['bg' => '#fee2e2', 'text' => '#991b1b'],
+        'high'     => ['bg' => '#ffedd5', 'text' => '#9a3412'],
+        'medium'   => ['bg' => '#fef9c3', 'text' => '#854d0e'],
+        'low'      => ['bg' => '#d1fae5', 'text' => '#065f46'],
+        'minor'    => ['bg' => '#d1fae5', 'text' => '#065f46'],
+    ];
+    $severityColor = $severityColors[strtolower($severity)] ?? ['bg' => '#e5e7eb', 'text' => '#374151'];
+
+    // false_alarm gets its own neutral gray rather than being lumped in
+    // with "resolved" green — a report worth reading differently than one
+    // where an actual accident was handled and closed out.
+    $statusColors = [
+        'pending'     => ['bg' => '#fef3c7', 'text' => '#92400e'],
+        'dispatched'  => ['bg' => '#dbeafe', 'text' => '#1e40af'],
+        'resolved'    => ['bg' => '#d1fae5', 'text' => '#065f46'],
+        'false_alarm' => ['bg' => '#f1f5f9', 'text' => '#475569'],
+    ];
+    $statusColor = $statusColors[$status ?? ''] ?? ['bg' => '#e5e7eb', 'text' => '#374151'];
+    $statusLabel = $status ? ucwords(str_replace('_', ' ', $status)) : null;
 @endphp
 
 {{-- ACTION BUTTONS --}}
 <div class="report-actions">
-    <button class="btn-report" onclick="window.print()">Print</button>
-    <button class="btn-report" onclick="exportReport()">Export</button>
-    @isset($incident)
-    <a class="btn-report" href="{{ route('investigation.incident-records.show', $incident) }}">Generate IRF</a>
-    @endisset
+    <span class="severity-badge" style="background:{{ $severityColor['bg'] }}; color:{{ $severityColor['text'] }};">
+        {{ $severity }} Severity
+    </span>
+    @if($statusLabel)
+    <span class="severity-badge" style="background:{{ $statusColor['bg'] }}; color:{{ $statusColor['text'] }};">
+        {{ $statusLabel }}
+    </span>
+    @endif
+    <div class="report-actions-buttons">
+        <button class="btn-report" onclick="window.print()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Print
+        </button>
+        <button class="btn-report" onclick="exportReport()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
+        </button>
+        @isset($incident)
+        {{-- Simple entry form, not the dense official one — same store()
+             endpoint either way; the official form is still one click away
+             from there ("Use Full Official Form") for cases that need it. --}}
+        <a class="btn-report" href="{{ route('investigation.incident-records.simple.show', $incident) }}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="15" y2="11"/></svg>
+            Generate IRF
+        </a>
+        @endisset
+    </div>
 </div>
 
 {{-- TOP ROW: Summary | Details --}}
@@ -65,30 +115,40 @@
             </svg>
         </div>
 
-        <div class="summary-field">
-            <div class="field-label">Full Name</div>
-            <div class="field-value">{{ $fullName }}</div>
-        </div>
-
-        <div class="summary-field">
-            <div class="field-label">Date/Time</div>
-            <div class="field-value">{{ $datetime }}</div>
-        </div>
-
-        <div class="summary-field">
-            <div class="field-label">Coordinates</div>
-            <div class="field-value">{{ $coordinates }}</div>
-        </div>
-
-        <div class="summary-field">
-            <div class="field-label">Reported By</div>
-            <div class="field-value">{{ $reportedBy }}</div>
-        </div>
-
-        <div class="summary-field">
-            <div class="field-label">Unit</div>
-            <div class="field-value">{{ $unit }}</div>
-        </div>
+        <table class="report-table">
+            <tbody>
+                <tr>
+                    <th scope="row">Full Name</th>
+                    <td>{{ $fullName }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Date/Time</th>
+                    <td>{{ $datetime }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Coordinates</th>
+                    <td>{{ $coordinates }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Reported By</th>
+                    <td>{{ $reportedBy }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Unit</th>
+                    <td>{{ $unit }}</td>
+                </tr>
+                @if($deviceCode ?? null)
+                {{-- Which physical IoT unit detected this — mainly an audit
+                     trail: if one device starts producing repeated false
+                     alarms, this is how you'd trace it back to that exact
+                     device_code from the report itself. --}}
+                <tr>
+                    <th scope="row">Reporting Device</th>
+                    <td>{{ $deviceCode }}{{ $deviceModel ? ' ('.$deviceModel.')' : '' }}</td>
+                </tr>
+                @endif
+            </tbody>
+        </table>
 
     </div>
 
@@ -98,29 +158,85 @@
         <div class="details-section-title">Incident Details</div>
         <div class="details-description">{{ $description }}</div>
 
-        <div class="details-section-title">Involved</div>
-        <ul class="involved-list">
-            <li>
-                <span class="inv-label">Vehicle</span>
-                <span class="inv-value">: {{ $vehicles }}</span>
-            </li>
-            <li>
-                <span class="inv-label">Injured</span>
-                <span class="inv-value">: {{ $injured }}</span>
-            </li>
-            <li>
-                <span class="inv-label">Severity</span>
-                <span class="inv-value">: {{ $severity }}</span>
-            </li>
-            <li>
-                <span class="inv-label">Road Condition</span>
-                <span class="inv-value">: {{ $roadCondition }}</span>
-            </li>
-            <li>
-                <span class="inv-label">Weather</span>
-                <span class="inv-value">: {{ $weather }}</span>
-            </li>
-        </ul>
+        @if($notes ?? null)
+        <div class="details-section-title">Notes</div>
+        <div class="details-description">{{ $notes }}</div>
+        @endif
+
+        <div class="details-section-title d-flex align-items-center justify-content-between">
+            <span>Involved</span>
+            @isset($incident)
+            {{-- An IoT crash report can't know any of these fields at the
+                 moment it's created — they only exist once investigation
+                 staff record what actually happened. --}}
+            <button type="button" class="involved-edit-toggle" id="involvedEditToggle" aria-expanded="false"
+                    aria-controls="involvedEditForm">Edit</button>
+            @endisset
+        </div>
+
+        <table class="report-table" id="involvedDisplay">
+            <tbody>
+                <tr>
+                    <th scope="row">Vehicle</th>
+                    <td>{{ $vehicles ?? 'Not yet recorded' }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Injured</th>
+                    <td>{{ $injured ?? 'Not yet recorded' }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Severity</th>
+                    <td>{{ $severity }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Road Condition</th>
+                    <td>{{ $roadCondition ?? 'Not yet recorded' }}</td>
+                </tr>
+                <tr>
+                    <th scope="row">Weather</th>
+                    <td>{{ $weather ?? 'Not yet recorded' }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        @isset($incident)
+        <form method="POST" action="{{ route('investigation.incident-report.update-details', $incident) }}"
+              id="involvedEditForm" class="involved-edit-form" hidden>
+            @csrf
+            <div class="involved-edit-row">
+                <label for="vehicles_involved">Vehicles Involved</label>
+                <input type="number" name="vehicles_involved" id="vehicles_involved" min="0" max="255"
+                       value="{{ old('vehicles_involved', $vehicles) }}">
+            </div>
+            <div class="involved-edit-row">
+                <label for="injured_count">Injured</label>
+                <input type="number" name="injured_count" id="injured_count" min="0" max="255"
+                       value="{{ old('injured_count', $injured) }}">
+            </div>
+            <div class="involved-edit-row">
+                <label for="road_condition">Road Condition</label>
+                <select name="road_condition" id="road_condition">
+                    <option value="" @selected(old('road_condition', $roadCondition) === null)>&mdash; Select &mdash;</option>
+                    @foreach(['Dry', 'Wet', 'Icy', 'Under Repair'] as $opt)
+                    <option value="{{ $opt }}" @selected(old('road_condition', $roadCondition) === $opt)>{{ $opt }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="involved-edit-row">
+                <label for="weather_condition">Weather</label>
+                <select name="weather_condition" id="weather_condition">
+                    <option value="" @selected(old('weather_condition', $weather) === null)>&mdash; Select &mdash;</option>
+                    @foreach(['Clear', 'Cloudy', 'Rainy', 'Foggy', 'Stormy'] as $opt)
+                    <option value="{{ $opt }}" @selected(old('weather_condition', $weather) === $opt)>{{ $opt }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="involved-edit-actions">
+                <button type="submit" class="btn-report btn-report-save">Save</button>
+                <button type="button" class="btn-report" id="involvedEditCancel">Cancel</button>
+            </div>
+        </form>
+        @endisset
 
     </div>
 
@@ -176,37 +292,60 @@
 @isset($incidentRecords)
 <div class="report-bottom-grid" style="margin-top:16px;">
     <div class="report-card" style="grid-column: 1 / -1;">
-        <div class="d-flex align-items-center justify-content-between mb-2" style="margin-bottom:14px;">
-            <div class="timeline-title" style="margin-bottom:0;">Generated Incident Records (IRF)</div>
+        <div class="timeline-title d-flex align-items-center justify-content-between">
+            <span>Generated Incident Records (IRF)</span>
             @if($incidentRecords->isNotEmpty())
-            <span class="badge rounded-pill" style="background:#1b3d52; font-size:.72rem;">
+            <span class="badge rounded-pill" style="background:#1b3d52; font-size:.82rem;">
                 {{ $incidentRecords->count() }}
             </span>
             @endif
         </div>
         @if($incidentRecords->isEmpty())
-        <div class="timeline-log" style="color:#6b7280; font-size:.85rem;">
+        <div class="timeline-log" style="color:#6b7280; font-size:.95rem;">
             No Incident Record Form has been generated for this incident yet.
         </div>
         @else
-        <div class="timeline-log" style="gap:6px;">
-            @foreach($incidentRecords as $record)
-            <a href="{{ route('investigation.incident-records.reprint', $record) }}"
-               class="timeline-entry irf-record-row {{ $record->printed_at ? 'irf-record-printed' : '' }}"
-               style="text-decoration:none; color:inherit;">
-                <span class="timeline-time">{{ $record->created_at->format('M d, Y h:i A') }}</span>
-                <span class="timeline-text d-flex align-items-center flex-wrap gap-2">
-                    <span class="status-badge {{ $record->printed_at ? 'status-resolved' : 'status-active' }}" style="font-size:.68rem; padding:.15rem .6rem;">
-                        {{ $record->printed_at ? 'Saved & Printed' : 'Saved' }}
-                    </span>
-                    <span>by {{ $record->generatedBy?->full_name ?? 'Unknown officer' }}</span>
-                    @if($record->printed_at)
-                        <span style="color:#2a7c5b; font-size:.78rem;">· printed {{ $record->printed_at->format('M d, h:i A') }}</span>
-                    @endif
-                    <span class="text-muted" style="font-size:.78rem;">— click to reopen</span>
-                </span>
-            </a>
-            @endforeach
+        <div class="table-responsive">
+            <table class="report-table irf-table">
+                <thead>
+                    <tr>
+                        <th>Date/Time</th>
+                        <th>Status</th>
+                        <th>Generated By</th>
+                        <th>Printed</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($incidentRecords as $record)
+                    <tr class="{{ $record->printed_at ? 'irf-record-printed' : '' }}">
+                        <td>{{ $record->created_at->format('M d, Y h:i A') }}</td>
+                        <td>
+                            <span class="status-badge {{ $record->printed_at ? 'status-resolved' : 'status-active' }}" style="font-size:.8rem; padding:.2rem .7rem;">
+                                {{ $record->printed_at ? 'Saved & Printed' : 'Saved' }}
+                            </span>
+                        </td>
+                        <td>{{ $record->generatedBy?->full_name ?? 'Unknown officer' }}</td>
+                        <td>{{ $record->printed_at ? $record->printed_at->format('M d, h:i A') : '—' }}</td>
+                        <td class="d-flex align-items-center gap-3">
+                            <a href="{{ route('investigation.incident-records.reprint', $record) }}" class="irf-reopen-link">
+                                Reopen &rarr;
+                            </a>
+                            {{-- Generates fresh from whatever's currently saved — works
+                                 even for a record that's only ever been "Saved," not
+                                 "Saved & Printed" yet, since it doesn't depend on
+                                 printed_at being set. Previously the only way to see
+                                 this was Reopen → wait for the ~60 fields to prefill →
+                                 SAVE & VIEW PDF again, which needlessly re-saved the
+                                 record just to look at something that already existed. --}}
+                            <a href="{{ route('investigation.incident-records.pdf', $record) }}" target="_blank" class="irf-reopen-link">
+                                View PDF
+                            </a>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
         @endif
     </div>

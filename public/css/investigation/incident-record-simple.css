@@ -1,0 +1,152 @@
+/* Simple IRF entry form — grouped by real-world concept (who/what
+   happened/who else was involved) instead of the official form's dense
+   ITEM A/B/C/D/E layout, with real labels and larger inputs instead of tiny
+   .62-.8rem text mimicking a printed government form. The official form
+   (incident-record.css) stays exactly as it was for review/print/PDF. */
+
+.simple-form-wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.simple-form-card {
+    background: #fff;
+    border: 1.5px solid #d1dde6;
+    border-radius: .85rem;
+    padding: 22px 26px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .06), 0 1px 2px rgba(15, 23, 42, .04);
+}
+
+.simple-section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eef2f6;
+}
+
+.simple-row {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.simple-row-2 { grid-template-columns: repeat(2, 1fr); }
+.simple-row-3 { grid-template-columns: repeat(3, 1fr); }
+.simple-row-4 { grid-template-columns: repeat(4, 1fr); }
+
+@media (max-width: 760px) {
+    .simple-row-2,
+    .simple-row-3,
+    .simple-row-4 {
+        grid-template-columns: 1fr;
+    }
+}
+
+.simple-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.simple-row .simple-field {
+    margin-bottom: 0;
+}
+
+.simple-field:last-child {
+    margin-bottom: 0;
+}
+
+.simple-field label {
+    font-size: .92rem;
+    font-weight: 600;
+    color: #374151;
+}
+
+.simple-field input,
+.simple-field select,
+.simple-field textarea {
+    border: 1.5px solid #c8d8e4;
+    border-radius: .5rem;
+    padding: .6rem .85rem;
+    font-size: 1rem;
+    font-family: 'Segoe UI', sans-serif;
+    color: #1f2937;
+    background: #fff;
+}
+
+.simple-field input:focus,
+.simple-field select:focus,
+.simple-field textarea:focus {
+    outline: 2px solid #1b3d52;
+    outline-offset: 1px;
+    border-color: #1b3d52;
+}
+
+.simple-field textarea {
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.5;
+}
+
+/* Collapsible sections — Suspect and Signatures/Station Info default closed
+   since most reports won't need them; native <details> so it's keyboard-
+   operable and announced as expandable with no extra ARIA (WCAG 3.3.2). */
+.simple-details {
+    margin-top: 4px;
+}
+
+.simple-details-card {
+    background: #fff;
+    border: 1.5px solid #d1dde6;
+    border-radius: .85rem;
+    padding: 18px 26px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .06), 0 1px 2px rgba(15, 23, 42, .04);
+}
+
+.simple-details summary {
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1b3d52;
+    list-style: none;
+}
+
+.simple-details summary::-webkit-details-marker {
+    display: none;
+}
+
+.simple-details summary::before {
+    content: "▸";
+    display: inline-block;
+    margin-right: 8px;
+    transition: transform .15s;
+}
+
+.simple-details[open] summary::before {
+    transform: rotate(90deg);
+}
+
+.simple-details-hint {
+    font-weight: 500;
+    color: #6b7280;
+    font-size: .88rem;
+}
+
+.simple-details-body {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed #d1dde6;
+}
+
+.simple-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 4px 0 24px;
+}

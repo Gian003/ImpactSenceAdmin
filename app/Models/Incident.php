@@ -22,6 +22,10 @@ class Incident extends Model
         'severity',
         'status',
         'notes',
+        'vehicles_involved',
+        'injured_count',
+        'road_condition',
+        'weather_condition',
         'dispatched_at',
         'resolved_at',
     ];
@@ -29,10 +33,12 @@ class Incident extends Model
     protected function casts(): array
     {
         return [
-            'latitude'      => 'float',
-            'longitude'     => 'float',
-            'dispatched_at' => 'datetime',
-            'resolved_at'   => 'datetime',
+            'latitude'          => 'float',
+            'longitude'         => 'float',
+            'vehicles_involved' => 'integer',
+            'injured_count'     => 'integer',
+            'dispatched_at'     => 'datetime',
+            'resolved_at'       => 'datetime',
         ];
     }
 

@@ -50,9 +50,10 @@ return [
     ],
 
     'twilio' => [
-        'account_sid' => env('TWILIO_ACCOUNT_SID'),
-        'auth_token'  => env('TWILIO_AUTH_TOKEN'),
-        'from_number' => env('TWILIO_FROM_NUMBER'),
+        'account_sid'  => env('TWILIO_ACCOUNT_SID'),
+        'auth_token'   => env('TWILIO_AUTH_TOKEN'),
+        'from_number'  => env('TWILIO_FROM_NUMBER'),
+        'toc_number'   => env('TOC_HOTLINE_NUMBER'),
     ],
 
 ];

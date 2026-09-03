@@ -7,6 +7,9 @@
 function goToPage(n) {
         document.getElementById('page1').style.display = n === 1 ? 'block' : 'none';
         document.getElementById('page2').style.display = n === 2 ? 'block' : 'none';
+        document.querySelectorAll('.irf-step').forEach(function (el) {
+            el.classList.toggle('active', Number(el.dataset.step) === n);
+        });
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -45,15 +48,21 @@ function goToPage(n) {
     }
 
     // Shared by both buttons — SAVE persists without printing, SAVE & PRINT
-    // persists (marking printed_at) then opens the print dialog. Saving
-    // always happens first so a failed/cancelled print never loses the data,
-    // and printed_at is only ever set by the print path, never cleared, so
-    // re-saving a previously-printed record doesn't erase that history.
+    // persists (marking printed_at) then opens the generated PDF in a new
+    // tab. Saving always happens first so a failed/cancelled PDF never loses
+    // the data, and printed_at is only ever set by the print path, never
+    // cleared, so re-saving a previously-printed record doesn't erase that
+    // history.
     async function saveIncidentRecord(printed) {
         const form = document.getElementById('irfForm');
         const formData = new FormData(form);
         formData.set('printed', printed ? '1' : '0');
-        const linkedIncident = form.elements['incident_id'].value;
+        // Optional chaining — not every view that reuses this script
+        // necessarily has an incident_id field (e.g. one without a "Link to
+        // Incident" picker); missing it should just mean "unlinked," not a
+        // crash that silently kills both SAVE and SAVE & VIEW PDF.
+        const linkedIncident = form.elements['incident_id']?.value ?? '';
+        let savedId = null;
 
         try {
             const res = await fetch(form.action, {
@@ -65,7 +74,10 @@ function goToPage(n) {
             const result = await res.json();
             // Once saved, further saves from this same page update the same
             // row instead of creating duplicates.
-            if (result.id) form.elements['record_id'].value = result.id;
+            if (result.id) {
+                form.elements['record_id'].value = result.id;
+                savedId = result.id;
+            }
 
             const linkNote = linkedIncident ? ' and linked to the incident' : ' (not linked to an incident)';
             showToast(
@@ -76,13 +88,21 @@ function goToPage(n) {
             console.error('Failed to save incident record:', err);
             showToast(
                 printed
-                    ? 'Could not save the record, but printing anyway — it won\'t appear on the Incident Report page until saved successfully.'
+                    ? 'Could not save the record, so there\'s no saved copy to generate a PDF from yet — try again.'
                     : 'Could not save the record. Check your connection and try again.',
                 'error'
             );
         }
 
-        if (printed) window.print();
+        // Only once we actually have a saved record id — the PDF route reads
+        // the saved data back from the database, so there's nothing to
+        // generate from if the save itself failed.
+        if (printed && savedId) {
+            window.open(
+                window.IncidentRecordsConfig.pdfUrlTemplate.replace(':id', savedId),
+                '_blank'
+            );
+        }
     }
 
     document.getElementById('saveBtn').addEventListener('click', () => saveIncidentRecord(false));

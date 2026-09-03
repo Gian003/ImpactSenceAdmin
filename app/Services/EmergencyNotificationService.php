@@ -11,26 +11,37 @@ class EmergencyNotificationService
         private VoiceCallService $voiceCall,
     ) {}
 
-    // Notifies the rider's emergency contact via SMS (Semaphore, PH-local rates)
-    // and a spoken voice call (Twilio TTS) - same message on both channels,
-    // same text format the device's own SIM800L SMS already uses, so the
-    // message is consistent regardless of which path actually delivered it.
-    // Both are non-fatal by design (see SmsService/VoiceCallService) so a
-    // notification failure never breaks the incident report that triggered it.
+    // Two-channel emergency notification:
+    //
+    //   SMS (Semaphore) → rider's emergency contact (family/friend)
+    //     Delivers the crash details as a text message they can read and
+    //     share, including the Google Maps link to the exact location.
+    //
+    //   Voice call (Twilio TTS) → TOC hotline
+    //     Dispatches an AI-spoken alert directly to the Tactical Operations
+    //     Center so duty officers hear the crash immediately, even if they
+    //     are away from the dashboard. Uses the same message text so the
+    //     information is consistent across both channels.
+    //
+    // Both are non-fatal — a failure on either channel never blocks the
+    // incident record from being saved or the Pusher broadcast from firing.
     public function notifyEmergencyContact(Incident $incident): void
     {
         $incident->loadMissing('rider.emergencyContacts');
 
-        $contact = $incident->rider?->emergencyContacts->first();
-
-        if (! $contact) {
-            return;
-        }
-
         $message = $this->buildMessage($incident);
 
-        $this->sms->send($contact->phone_number, $message);
-        $this->voiceCall->call($contact->phone_number, $message);
+        // SMS to emergency contact
+        $contact = $incident->rider?->emergencyContacts->first();
+        if ($contact) {
+            $this->sms->send($contact->phone_number, $message);
+        }
+
+        // Twilio AI voice call to TOC hotline
+        $tocNumber = config('services.twilio.toc_number');
+        if ($tocNumber) {
+            $this->voiceCall->call($tocNumber, $message);
+        }
     }
 
     private function buildMessage(Incident $incident): string
