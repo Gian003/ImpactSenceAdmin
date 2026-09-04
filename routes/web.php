@@ -361,7 +361,12 @@ Route::prefix('toc')
             )->values()->all();
 
             return view('toc.devices.index', [
-                'riders'          => User::with('device')->where('role', 'rider')->latest()->get(),
+                // withCount('incidents') on the device relation — a device
+                // racking up an unusual number of incidents (especially
+                // false_alarm-flagged ones) is a hardware/calibration signal
+                // worth flagging, independent of which rider has it paired.
+                'riders'          => User::with(['device' => fn ($q) => $q->withCount('incidents')])
+                    ->where('role', 'rider')->latest()->get(),
                 'unlinkedDevices' => Device::whereNull('rider_id')->latest()->get(),
                 'totalRiders'     => User::where('role', 'rider')->count(),
                 'totalDevices'    => Device::count(),
@@ -797,7 +802,13 @@ Route::prefix('investigation')
             return back()->with('success', 'Incident details updated.');
         })->name('incident-report.update-details');
         Route::get('/devices', function () {
-            $riders = User::with('device')->where('role', 'rider')->latest()->get();
+            // withCount('incidents') on the device relation, not the rider —
+            // a device racking up an unusual number of incidents (especially
+            // false_alarm-flagged ones) is a hardware/calibration signal
+            // worth an investigator's attention, independent of which rider
+            // currently has it paired.
+            $riders = User::with(['device' => fn ($q) => $q->withCount('incidents')])
+                ->where('role', 'rider')->latest()->get();
             return view('investigation.devices.index', [
                 'riders'         => $riders,
                 'totalRiders'    => $riders->count(),

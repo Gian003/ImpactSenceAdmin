@@ -366,6 +366,15 @@
                             Device Code</th>
                         <th
                             style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">
+                            Model</th>
+                        <th
+                            style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">
+                            Firmware</th>
+                        <th
+                            style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">
+                            Battery</th>
+                        <th
+                            style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">
                             Full Name</th>
                         <th
                             style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">
@@ -376,6 +385,13 @@
                         <th
                             style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">
                             Status</th>
+                        {{-- Cross-referenced against incidents.device_id — a
+                             device racking up an unusual number (especially
+                             false_alarm-flagged ones) is a hardware/
+                             calibration signal worth flagging. --}}
+                        <th
+                            style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">
+                            Incidents</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -389,6 +405,22 @@
                                     </span>
                                 @else
                                     <span style="color:#64748b;">No device</span>
+                                @endif
+                            </td>
+                            <td style="padding:11px 16px; color:#64748b; border-bottom:1px solid #f5eeef;">
+                                {{ $rider->device?->model ?? '—' }}</td>
+                            <td
+                                style="padding:11px 16px; color:#64748b; border-bottom:1px solid #f5eeef; font-family:monospace; font-size:.8rem;">
+                                {{ $rider->device?->firmware_version ?? '—' }}</td>
+                            <td style="padding:11px 16px; border-bottom:1px solid #f5eeef;">
+                                @if ($rider->device?->battery_level !== null)
+                                    @php
+                                        $battery = $rider->device->battery_level;
+                                        $batteryColor = $battery < 20 ? '#991b1b' : ($battery < 50 ? '#92400e' : '#334155');
+                                    @endphp
+                                    <span style="color:{{ $batteryColor }}; font-weight:{{ $battery < 20 ? '700' : '400' }};">{{ $battery }}%</span>
+                                @else
+                                    <span style="color:#94a3b8;">—</span>
                                 @endif
                             </td>
                             <td
@@ -410,10 +442,17 @@
                                         style="display:inline-block; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:600; background:#f1f5f9; color:#64748b;">Unpaired</span>
                                 @endif
                             </td>
+                            <td style="padding:11px 16px; border-bottom:1px solid #f5eeef;">
+                                @if ($rider->device)
+                                    <span style="color:#64748b; font-weight:{{ $rider->device->incidents_count > 0 ? '600' : '400' }};">{{ $rider->device->incidents_count }}</span>
+                                @else
+                                    <span style="color:#94a3b8;">—</span>
+                                @endif
+                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="text-center text-muted py-4">No registered riders yet.</td>
+                            <td colspan="9" class="text-center text-muted py-4">No registered riders yet.</td>
                         </tr>
                     @endforelse
                 </tbody>
