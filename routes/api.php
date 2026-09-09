@@ -77,10 +77,19 @@ Route::prefix('rider')->group(function () {
 // ── PATROL ────────────────────────────────────────────────────────────────────
 Route::prefix('patrol')->group(function () {
 
-    // Public
-    Route::post('login',           [PatrolAuthController::class, 'login']);
-    Route::post('register-request', [PatrolRegistrationController::class, 'store']);
-    Route::post('registration-status', [PatrolRegistrationController::class, 'status']);
+    // Public — the only three patrol endpoints reachable without a token, so
+    // each carries its own rate limit (same approach as the rider device-pair
+    // route). login is a credential brute-force surface; register-request
+    // writes a row and stores an uploaded photo; registration-status answers
+    // whether a given email has a registration at all, which is an account
+    // enumeration oracle if left uncapped. status gets a looser cap because
+    // the app's "Check Status" button is tapped by hand.
+    Route::post('login',           [PatrolAuthController::class, 'login'])
+        ->middleware('throttle:5,1');
+    Route::post('register-request', [PatrolRegistrationController::class, 'store'])
+        ->middleware('throttle:5,1');
+    Route::post('registration-status', [PatrolRegistrationController::class, 'status'])
+        ->middleware('throttle:10,1');
 
     // Authenticated
     Route::middleware('auth:sanctum')->group(function () {

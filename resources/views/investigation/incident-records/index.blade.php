@@ -203,7 +203,7 @@
             <td><span class="irf-label">Barangay:</span><input class="irf-input" type="text" name="b_barangay2"></td>
             <td colspan="2">
                 <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr 1fr; gap:4px;">
-                    <div><span class="irf-label">Weight:</span><input class="irf-input" type="text" name="b_weight"></div>
+                    <div><span class="irf-label">Weight (kg):</span><input class="irf-input" type="number" min="0" max="300" step="0.1" name="b_weight"></div>
                     <div><span class="irf-label">Color of Eyes:</span><input class="irf-input" type="text" name="b_eye_color"></div>
                     <div><span class="irf-label">Color of Hair:</span><input class="irf-input" type="text" name="b_hair_color"></div>
                     <div><span class="irf-label">Distinguishing Marks:</span><input class="irf-input" type="text" name="b_marks"></div>
@@ -222,11 +222,17 @@
         {{-- ── ITEM C: VICTIM'S DATA ── --}}
         <tr><td colspan="3" class="irf-section">ITEM "C" — VICTIM'S DATA</td></tr>
         <tr>
-            <td><span class="irf-label">Family Name:</span><input class="irf-input" type="text" name="c_family_name"></td>
-            <td><span class="irf-label">First Name:</span><input class="irf-input" type="text" name="c_first_name" value="{{ $incident?->rider?->full_name ?? '' }}" placeholder="Full name — split into family/first name above"></td>
+            {{-- Riders are stored with one assembled name, so it's split into
+                 the three boxes the form actually asks for. Previously the
+                 whole string went into First Name and the officer was left to
+                 re-key it, which put a surname in the wrong field on a form
+                 that becomes evidence. --}}
+            @php $victimName = $incident?->rider?->nameParts() ?? ['family' => '', 'first' => '', 'middle' => '']; @endphp
+            <td><span class="irf-label">Family Name:</span><input class="irf-input" type="text" name="c_family_name" value="{{ $victimName['family'] }}"></td>
+            <td><span class="irf-label">First Name:</span><input class="irf-input" type="text" name="c_first_name" value="{{ $victimName['first'] }}"></td>
             <td>
                 <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px;">
-                    <div><span class="irf-label">Middle Name:</span><input class="irf-input" type="text" name="c_middle_name"></div>
+                    <div><span class="irf-label">Middle Name:</span><input class="irf-input" type="text" name="c_middle_name" value="{{ $victimName['middle'] }}"></div>
                     <div><span class="irf-label">Qualifier:</span><input class="irf-input" type="text" name="c_qualifier"></div>
                     <div><span class="irf-label">Nickname:</span><input class="irf-input" type="text" name="c_nickname"></div>
                 </div>
@@ -241,7 +247,7 @@
                     <div><span class="irf-label">Date of Birth:</span><input class="irf-input" type="date" name="c_dob" value="{{ $incident?->rider?->date_of_birth?->format('Y-m-d') ?? '' }}"></div>
                     <div><span class="irf-label">Age:</span><input class="irf-input" type="number" name="c_age" value="{{ $incident?->rider?->date_of_birth ? $incident->rider->date_of_birth->age : '' }}"></div>
                     <div><span class="irf-label">Place of Birth:</span><input class="irf-input" type="text" name="c_pob"></div>
-                    <div><span class="irf-label">Phone Number:</span><input class="irf-input" type="text" name="c_phone" value="{{ $incident?->rider?->phone_number ?? '' }}"></div>
+                    <div><span class="irf-label">Phone Number:</span><input class="irf-input" type="tel" inputmode="numeric" maxlength="11" pattern="\d{11}" title="11-digit mobile number, e.g. 09171234567" name="c_phone" value="{{ $incident?->rider?->phone_number ?? '' }}"></div>
                 </div>
             </td>
         </tr>
@@ -308,6 +314,22 @@
         </tr>
         <tr>
             <td colspan="3" style="height:200px; padding:6px;">
+                {{-- Screen-only (hidden in @media print): the draft is a
+                     scaffold the investigator chooses to insert and then
+                     edits, never something that quietly appears in an
+                     evidentiary document. It states only what the system
+                     recorded — who, what, when, where — and stops there;
+                     why and how are the investigator's to determine. --}}
+                @if($incident)
+                <div class="irf-draft-bar">
+                    <button type="button" id="draftNarrative" class="irf-draft-btn">
+                        Draft from incident
+                    </button>
+                    <span class="irf-draft-note">
+                        Inserts the recorded facts only — review, then add the why and how yourself.
+                    </span>
+                </div>
+                @endif
                 <textarea class="irf-textarea" name="d_narrative" rows="10"
                           placeholder="Write the full narrative here..."></textarea>
             </td>
@@ -358,15 +380,18 @@
         {{-- Police Station contact details --}}
         <tr>
             <td colspan="2"><span class="irf-label">Name of the Police Station:</span><input class="irf-input" type="text" name="station_name"></td>
-            <td><span class="irf-label">Telephone:</span><input class="irf-input" type="text" name="station_tel"></td>
+            {{-- Station line, not necessarily a mobile number — numeric keypad
+                 on mobile via inputmode, but no hard 11-digit limit since a
+                 landline with an area code doesn't follow that format. --}}
+            <td><span class="irf-label">Telephone:</span><input class="irf-input" type="tel" inputmode="numeric" name="station_tel"></td>
         </tr>
         <tr>
             <td colspan="2"><span class="irf-label">Investigator-on-Case:</span><input class="irf-input" type="text" name="investigator_name"></td>
-            <td><span class="irf-label">Mobile Phone:</span><input class="irf-input" type="text" name="investigator_mobile"></td>
+            <td><span class="irf-label">Mobile Phone:</span><input class="irf-input" type="tel" inputmode="numeric" maxlength="11" pattern="\d{11}" title="11-digit mobile number, e.g. 09171234567" name="investigator_mobile"></td>
         </tr>
         <tr>
             <td colspan="2"><span class="irf-label">Name of Chief/Head of Office:</span><input class="irf-input" type="text" name="chief_name"></td>
-            <td><span class="irf-label">Mobile Phone:</span><input class="irf-input" type="text" name="chief_mobile"></td>
+            <td><span class="irf-label">Mobile Phone:</span><input class="irf-input" type="tel" inputmode="numeric" maxlength="11" pattern="\d{11}" title="11-digit mobile number, e.g. 09171234567" name="chief_mobile"></td>
         </tr>
 
     </table>
@@ -446,6 +471,9 @@
         // ':id' gets swapped for the real record id once SAVE & PRINT
         // actually knows it (a brand-new record doesn't have one yet).
         pdfUrlTemplate: @json(route('investigation.incident-records.pdf', ':id')),
+        // Null on the blank-form route — the button only renders when there's
+        // an incident to draw facts from.
+        narrativeDraft: @json($incident?->narrativeDraft()),
     };
 </script>
 <script src="{{ asset('js/investigation/incident-records.js') }}?v={{ filemtime(public_path('js/investigation/incident-records.js')) }}"></script>

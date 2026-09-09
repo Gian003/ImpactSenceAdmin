@@ -324,3 +324,35 @@
     #page1, #page2 { display: block !important; }
     #page1 { page-break-after: always; }
 }
+
+/* ── "Draft from incident" control ─────────────────────────────
+   Screen-only page chrome, not part of the official form — printed
+   output must show the narrative exactly as the officer left it. */
+.irf-draft-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+.irf-draft-btn {
+    border: 1px solid #1b3d52;
+    background: #fff;
+    color: #1b3d52;
+    font-size: .74rem;
+    font-weight: 600;
+    padding: 3px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+.irf-draft-btn:hover { background: #1b3d52; color: #fff; }
+
+.irf-draft-note {
+    font-size: .72rem;
+    color: #64748b;
+}
+
+@media print {
+    .irf-draft-bar { display: none !important; }
+}

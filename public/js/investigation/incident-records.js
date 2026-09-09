@@ -27,6 +27,57 @@ function goToPage(n) {
         });
     }
 
+    // "Draft from incident" — inserts the system's factual scaffold into the
+    // Item D narrative. Deliberately an explicit action rather than a prefill:
+    // the IRF becomes evidence, and text that quietly appeared in the box is
+    // text an officer can end up signing without having adopted it.
+    //
+    // Never overwrites silently — if the officer has already written
+    // something, the draft is appended below it rather than replacing work.
+    (function () {
+        const button = document.getElementById('draftNarrative');
+        const draft = window.IncidentRecordsConfig.narrativeDraft;
+        if (!button || !draft) return;
+
+        const field = document.querySelector('textarea[name="d_narrative"]');
+        if (!field) return;
+
+        button.addEventListener('click', function () {
+            const existing = field.value.trim();
+
+            if (existing && existing.includes(draft.slice(0, 40))) {
+                field.focus();
+                return; // already inserted — don't stack duplicates
+            }
+
+            field.value = existing ? existing + '\n\n' + draft : draft;
+            field.focus();
+            // Put the caret at the end so the officer types straight on from
+            // the facts rather than in front of them.
+            field.setSelectionRange(field.value.length, field.value.length);
+        });
+    })();
+
+    // type="tel" + pattern="\d{11}" (set on these fields in the Blade
+    // template) only stops non-digit input at form-submit time, and only on
+    // browsers that actually enforce HTML5 pattern validation — it does
+    // nothing while typing, and desktop browsers don't restrict type="tel"
+    // to digits at all (that's standard behavior: phone numbers can
+    // legitimately contain +, -, (), spaces in other formats, so browsers
+    // never enforce digits-only for type="tel"). This strips anything
+    // non-digit live, the same way a real phone-number field should behave.
+    (function () {
+        const form = document.getElementById('irfForm');
+        if (!form) return;
+        ['c_phone', 'investigator_mobile', 'chief_mobile', 'station_tel'].forEach(function (name) {
+            const field = form.elements[name];
+            if (!field) return;
+            field.addEventListener('input', function () {
+                this.value = this.value.replace(/\D/g, '');
+            });
+        });
+    })();
+
     // Save confirmation — previously there was zero feedback on success and
     // a jarring native alert() on failure. Success auto-dismisses; errors
     // stay until closed, since silently losing typed data is worth noticing.

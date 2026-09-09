@@ -36,6 +36,13 @@
                 Dashboard
             </a>
 
+            {{-- Grouped by how the work actually runs: what's watched live, who
+                 staffs it, what it runs on, and what's reviewed afterwards.
+                 Patrol Registrations sits high because it's the only nav item
+                 that raises a count badge demanding action, and directly above
+                 Personnel Roster because the roster page now links into it. --}}
+            <div class="nav-section">Monitoring</div>
+
             <a href="{{ route('toc.location.tracking') }}" id="navLocationTracking"
                class="nav-link {{ request()->routeIs('toc.location*') ? 'active' : '' }}">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
@@ -45,28 +52,6 @@
                     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
                 </svg>
                 Location Tracking
-            </a>
-
-            <a href="{{ route('toc.speed-zones.index') }}"
-               class="nav-link {{ request()->routeIs('toc.speed-zones*') ? 'active' : '' }}">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                     viewBox="0 0 24 24">
-                    <path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/>
-                </svg>
-                Speed Zones
-            </a>
-
-            <a href="{{ route('toc.devices.index') }}"
-               class="nav-link {{ request()->routeIs('toc.devices*') ? 'active' : '' }}">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                     viewBox="0 0 24 24">
-                    <path d="M12 2a9 9 0 0 1 9 9v1H3v-1a9 9 0 0 1 9-9z"/>
-                    <path d="M3 12v2a9 9 0 0 0 18 0v-2"/>
-                    <path d="M9 21h6"/>
-                </svg>
-                Device Management
             </a>
 
             <a href="{{ route('toc.patrollers.index') }}"
@@ -82,17 +67,7 @@
                 Patrollers Unit
             </a>
 
-            <a href="{{ route('toc.analytics.index') }}"
-               class="nav-link {{ request()->routeIs('toc.analytics*') ? 'active' : '' }}">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                     viewBox="0 0 24 24">
-                    <line x1="18" y1="20" x2="18" y2="10"/>
-                    <line x1="12" y1="20" x2="12" y2="4"/>
-                    <line x1="6"  y1="20" x2="6"  y2="14"/>
-                </svg>
-                Accident Analytics
-            </a>
+            <div class="nav-section">Personnel</div>
 
             <a href="{{ route('toc.patrol-registrations.index') }}"
                class="nav-link {{ request()->routeIs('toc.patrol-registrations*') ? 'active' : '' }}">
@@ -131,6 +106,59 @@
                     <path d="M3 15v4a2 2 0 0 0 2 2"/>
                 </svg>
                 Personnel Roster
+            </a>
+
+            <div class="nav-section">Devices &amp; Zones</div>
+
+            <a href="{{ route('toc.devices.index') }}"
+               class="nav-link {{ request()->routeIs('toc.devices*') ? 'active' : '' }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     viewBox="0 0 24 24">
+                    <path d="M12 2a9 9 0 0 1 9 9v1H3v-1a9 9 0 0 1 9-9z"/>
+                    <path d="M3 12v2a9 9 0 0 0 18 0v-2"/>
+                    <path d="M9 21h6"/>
+                </svg>
+                Device Management
+            </a>
+
+            <a href="{{ route('toc.speed-zones.index') }}"
+               class="nav-link {{ request()->routeIs('toc.speed-zones*') ? 'active' : '' }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     viewBox="0 0 24 24">
+                    <path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/>
+                </svg>
+                Speed Zones
+            </a>
+
+            <div class="nav-section">Records</div>
+
+            <a href="{{ route('toc.analytics.index') }}"
+               class="nav-link {{ request()->routeIs('toc.analytics*') ? 'active' : '' }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     viewBox="0 0 24 24">
+                    <line x1="18" y1="20" x2="18" y2="10"/>
+                    <line x1="12" y1="20" x2="12" y2="4"/>
+                    <line x1="6"  y1="20" x2="6"  y2="14"/>
+                </svg>
+                Accident Analytics
+            </a>
+
+            {{-- Call Recordings — the Twilio TTS alert calls placed to the TOC
+                 hotline when a crash is detected. --}}
+            <a href="{{ route('toc.call-recordings.index') }}"
+               class="nav-link {{ request()->routeIs('toc.call-recordings*') ? 'active' : '' }}">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     viewBox="0 0 24 24">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                </svg>
+                Call Recordings
             </a>
         </nav>
 

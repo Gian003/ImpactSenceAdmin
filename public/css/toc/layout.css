@@ -90,3 +90,43 @@ body {
         background: rgba(220, 38, 38, .45);
     }
 }
+
+/* Sidebar section labels — the nav grew past the point where a flat list of
+   nine links could be scanned quickly, so related destinations are grouped
+   under a quiet heading.
+
+   Kept recessive through size, weight and letter-spacing rather than through
+   transparency: at 40% white the labels were dimmer than the links they
+   head, which read as disabled rather than as headings. */
+.sidebar .nav-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 22px 20px 8px;
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, .62);
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Hairline running from the label out to the sidebar edge. Gives the eye a
+   boundary between groups even when it's skimming down the icon column
+   rather than reading the labels, which is how a sidebar is actually used
+   once someone knows the app. Sits after the text rather than above it so
+   it reads as one object with the label, not as a separate divider. */
+.sidebar .nav-section::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    background: rgba(255, 255, 255, .18);
+}
+
+/* Asymmetric spacing binds each label to the links below it: more room above
+   (separating it from the previous group) than below (attaching it to its
+   own). The first label follows Dashboard, which already carries spacing. */
+.sidebar .nav-section:first-of-type {
+    margin-top: 12px;
+}

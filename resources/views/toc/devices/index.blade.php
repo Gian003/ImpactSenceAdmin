@@ -311,6 +311,7 @@
                             <th
                                 style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">
                                 Registered</th>
+                            <th style="padding:11px 16px; background:#7B1A2E; border:none;"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -344,6 +345,13 @@
                                 <td
                                     style="padding:11px 16px; color:#64748b; border-bottom:1px solid #f5eeef; font-size:.8rem;">
                                     {{ $dev->created_at->format('M d, Y') }}</td>
+                                <td style="padding:8px 16px; border-bottom:1px solid #f5eeef;">
+                                    <button type="button"
+                                        onclick="openEditModal({{ $dev->id }}, '{{ addslashes($dev->device_code) }}', '{{ addslashes($dev->model ?? '') }}', '{{ addslashes($dev->firmware_version ?? '') }}')"
+                                        style="background:none; border:1px solid #e8d5d9; border-radius:6px; color:#7B1A2E; font-size:.75rem; font-weight:600; padding:3px 12px; cursor:pointer;">
+                                        Edit
+                                    </button>
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -392,6 +400,7 @@
                         <th
                             style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">
                             Incidents</th>
+                        <th style="padding:11px 16px; background:#7B1A2E; border:none;"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -449,6 +458,15 @@
                                     <span style="color:#94a3b8;">—</span>
                                 @endif
                             </td>
+                            <td style="padding:8px 16px; border-bottom:1px solid #f5eeef;">
+                                @if ($rider->device)
+                                    <button type="button"
+                                        onclick="openEditModal({{ $rider->device->id }}, '{{ addslashes($rider->device->device_code) }}', '{{ addslashes($rider->device->model ?? '') }}', '{{ addslashes($rider->device->firmware_version ?? '') }}')"
+                                        style="background:none; border:1px solid #e8d5d9; border-radius:6px; color:#7B1A2E; font-size:.75rem; font-weight:600; padding:3px 12px; cursor:pointer;">
+                                        Edit
+                                    </button>
+                                @endif
+                            </td>
                         </tr>
                     @empty
                         <tr>
@@ -460,12 +478,78 @@
         </div>
     </div>
 
+    {{-- Edit Device Modal --}}
+    <div id="editDeviceModal"
+        style="display:none; position:fixed; inset:0; z-index:1050; background:rgba(0,0,0,.45); align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:12px; width:100%; max-width:420px; margin:16px; box-shadow:0 8px 32px rgba(0,0,0,.18);">
+            <div style="padding:18px 22px; border-bottom:1px solid #f5eeef; display:flex; align-items:center; justify-content:space-between;">
+                <span style="font-weight:700; font-size:.95rem; color:#1e293b;">Edit Device</span>
+                <button onclick="closeEditModal()" style="background:none; border:none; font-size:1.2rem; color:#64748b; cursor:pointer; line-height:1;">&times;</button>
+            </div>
+            <form id="editDeviceForm" method="POST">
+                @csrf
+                @method('PATCH')
+                <div style="padding:20px 22px; display:flex; flex-direction:column; gap:14px;">
+                    <div>
+                        <label style="font-size:.78rem; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Device Code</label>
+                        <input type="text" name="device_code" id="edit_device_code"
+                            style="width:100%; border:1px solid #e8d5d9; border-radius:7px; padding:7px 10px; font-family:monospace; font-size:.85rem; color:#1e293b;"
+                            required>
+                        <div style="font-size:.7rem; color:#64748b; margin-top:3px;">Must match exactly what is set in the firmware's <code>config.h</code></div>
+                    </div>
+                    <div>
+                        <label style="font-size:.78rem; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Model <span style="font-weight:400;">(optional)</span></label>
+                        <input type="text" name="model" id="edit_model"
+                            style="width:100%; border:1px solid #e8d5d9; border-radius:7px; padding:7px 10px; font-size:.85rem;">
+                    </div>
+                    <div>
+                        <label style="font-size:.78rem; font-weight:600; color:#475569; display:block; margin-bottom:4px;">Firmware Version <span style="font-weight:400;">(optional)</span></label>
+                        <input type="text" name="firmware_version" id="edit_firmware"
+                            style="width:100%; border:1px solid #e8d5d9; border-radius:7px; padding:7px 10px; font-family:monospace; font-size:.85rem;"
+                            placeholder="e.g. 2.0.1">
+                    </div>
+                </div>
+                <div style="padding:14px 22px; border-top:1px solid #f5eeef; display:flex; gap:10px; justify-content:flex-end;">
+                    <button type="button" onclick="closeEditModal()"
+                        style="background:#f1f5f9; border:none; border-radius:7px; padding:8px 18px; font-size:.83rem; font-weight:600; color:#475569; cursor:pointer;">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                        style="background:#7B1A2E; border:none; border-radius:7px; padding:8px 20px; font-size:.83rem; font-weight:600; color:#fff; cursor:pointer;">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 @endsection
 
 @push('scripts')
     {{-- Server-side data the external script needs. copyPk() (used by inline
      onclick="" attributes elsewhere on this page) now lives in the external
      file below, along with everything else that was in this block. --}}
+    <script>
+        const editBaseUrl = '{{ route('toc.devices.index') }}';
+
+        function openEditModal(id, code, model, firmware) {
+            const form = document.getElementById('editDeviceForm');
+            form.action = editBaseUrl.replace(/\/devices$/, '') + '/devices/' + id;
+            document.getElementById('edit_device_code').value = code;
+            document.getElementById('edit_model').value = model;
+            document.getElementById('edit_firmware').value = firmware;
+            const modal = document.getElementById('editDeviceModal');
+            modal.style.display = 'flex';
+        }
+
+        function closeEditModal() {
+            document.getElementById('editDeviceModal').style.display = 'none';
+        }
+
+        document.getElementById('editDeviceModal').addEventListener('click', function(e) {
+            if (e.target === this) closeEditModal();
+        });
+    </script>
     <script>
         window.TocDevicesConfig = {
             chartLabels: @json($chartLabels),

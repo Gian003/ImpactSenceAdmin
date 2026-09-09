@@ -159,7 +159,8 @@
         <div class="simple-row simple-row-2">
             <div class="simple-field">
                 <label for="c_phone">Phone Number</label>
-                <input type="text" id="c_phone" name="c_phone" value="{{ $incident?->rider?->phone_number ?? '' }}">
+                <input type="tel" inputmode="numeric" maxlength="11" pattern="\d{11}" title="11-digit mobile number, e.g. 09171234567"
+                       id="c_phone" name="c_phone" value="{{ $incident?->rider?->phone_number ?? '' }}">
             </div>
             <div class="simple-field">
                 <label for="c_address">Address</label>
@@ -334,8 +335,8 @@
                     <input type="text" id="b_barangay2" name="b_barangay2">
                 </div>
                 <div class="simple-field">
-                    <label for="b_weight">Weight</label>
-                    <input type="text" id="b_weight" name="b_weight">
+                    <label for="b_weight">Weight (kg)</label>
+                    <input type="number" min="0" max="300" step="0.1" id="b_weight" name="b_weight">
                 </div>
                 <div class="simple-field">
                     <label for="b_influence">Under the Influence</label>
@@ -474,7 +475,7 @@
                 </div>
                 <div class="simple-field">
                     <label for="station_tel">Station Telephone</label>
-                    <input type="text" id="station_tel" name="station_tel">
+                    <input type="tel" inputmode="numeric" id="station_tel" name="station_tel">
                 </div>
             </div>
             <div class="simple-row simple-row-2">
@@ -484,7 +485,8 @@
                 </div>
                 <div class="simple-field">
                     <label for="investigator_mobile">Investigator Mobile Phone</label>
-                    <input type="text" id="investigator_mobile" name="investigator_mobile">
+                    <input type="tel" inputmode="numeric" maxlength="11" pattern="\d{11}" title="11-digit mobile number, e.g. 09171234567"
+                           id="investigator_mobile" name="investigator_mobile">
                 </div>
             </div>
             <div class="simple-row simple-row-2">
@@ -494,7 +496,8 @@
                 </div>
                 <div class="simple-field">
                     <label for="chief_mobile">Chief Mobile Phone</label>
-                    <input type="text" id="chief_mobile" name="chief_mobile">
+                    <input type="tel" inputmode="numeric" maxlength="11" pattern="\d{11}" title="11-digit mobile number, e.g. 09171234567"
+                           id="chief_mobile" name="chief_mobile">
                 </div>
             </div>
         </div>

@@ -4,7 +4,7 @@
 .incidents-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: .83rem;
+    font-size: .95rem;
 }
 
 /* Header — maroon */
@@ -15,7 +15,7 @@
     padding: 11px 16px;
     color: #fff;
     font-weight: 700;
-    font-size: .78rem;
+    font-size: .88rem;
     border: none;
     white-space: nowrap;
 }
@@ -41,8 +41,8 @@
 .status-badge {
     display: inline-block;
     border-radius: 9999px;
-    padding: .2rem .9rem;
-    font-size: .72rem;
+    padding: .25rem 1rem;
+    font-size: .82rem;
     font-weight: 600;
     white-space: nowrap;
 }
@@ -61,7 +61,7 @@
 
 /* Incident type chip */
 .incident-type {
-    font-size: .72rem;
+    font-size: .82rem;
     font-weight: 700;
     letter-spacing: .04em;
     color: #475569;
@@ -73,7 +73,7 @@
 /* Incident time */
 .incident-time {
     white-space: nowrap;
-    font-size: .8rem;
+    font-size: .9rem;
     color: #64748b;
 }
 
@@ -81,10 +81,56 @@
 .incident-action-link {
     color: #7B1A2E;
     font-weight: 600;
-    font-size: .8rem;
+    font-size: .9rem;
     text-decoration: none;
 }
 .incident-action-link:hover {
     color: #5C1020;
     text-decoration: underline;
 }
+
+/* Pagination — Bootstrap's default active-page color is blue, which clashes
+   with the app's maroon theme used everywhere else (buttons, badges,
+   headers). */
+.pagination .page-link {
+    color: #7B1A2E;
+    font-size: .88rem;
+}
+.pagination .page-item.active .page-link {
+    background-color: #7B1A2E;
+    border-color: #7B1A2E;
+    color: #fff;
+}
+.pagination .page-link:hover {
+    color: #5C1020;
+}
+.pagination .page-item.disabled .page-link {
+    color: #adb5bd;
+}
+
+/* ── Severity ──────────────────────────────────────────────────
+   Same scale the analytics charts use (critical → low), so a colour
+   means the same thing wherever an officer meets it in the app. */
+.sev-badge {
+    display: inline-block;
+    border-radius: 9999px;
+    padding: .2rem .7rem;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    white-space: nowrap;
+}
+.sev-critical { background: #fee2e2; color: #991b1b; }
+.sev-high     { background: #ffedd5; color: #9a3412; }
+.sev-medium   { background: #fef3c7; color: #92400e; }
+.sev-low      { background: #d1fae5; color: #065f46; }
+
+/* ── Incident status ───────────────────────────────────────────
+   The four states the database actually stores. The page used to fold
+   these into "Active" and "Resolved", which filed false alarms in with
+   genuinely resolved cases — the one distinction an investigator most
+   needs to keep. .status-active / .status-resolved are left in place
+   above because the Saved Records page still uses them. */
+.status-pending     { background: #fef3c7; color: #92400e; border: none; }
+.status-dispatched  { background: #dbeafe; color: #1e40af; border: none; }
+.status-false-alarm { background: #f1f5f9; color: #64748b; border: none; }

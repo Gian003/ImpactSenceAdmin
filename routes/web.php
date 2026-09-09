@@ -393,6 +393,20 @@ Route::prefix('toc')
                 ->with('success', 'Device registered. Share the auto-generated pairing key with the rider.');
         })->name('devices.store');
 
+        // Update device_code, model, or firmware on an existing device
+        Route::patch('/devices/{device}', function (Request $request, Device $device) {
+            $data = $request->validate([
+                'device_code'      => ['required', 'string', 'max:50', 'unique:devices,device_code,' . $device->id],
+                'model'            => ['nullable', 'string', 'max:100'],
+                'firmware_version' => ['nullable', 'string', 'max:20'],
+            ]);
+
+            $device->update($data);
+
+            return redirect()->route('toc.devices.index')
+                ->with('success', 'Device "' . $device->device_code . '" updated.');
+        })->name('devices.update');
+
         // ── Patrol registrations ──────────────────────────────────────────────
         Route::get('/patrol-registrations', function () {
             return view('toc.patrol-registrations.index', [
@@ -487,9 +501,26 @@ Route::prefix('toc')
         // by TOC staff from real PNP Urdaneta personnel records, kept
         // separate from the registration flow itself.
         Route::get('/personnel-roster', function () {
+            // Which roster entries have actually been claimed. The roster says
+            // who is *allowed* an account; these two say who has one, who is
+            // waiting on review, and — by omission — who never registered at
+            // all, which is the set worth chasing. Matched on badge_number,
+            // the same key PatrolRegistrationController validates against.
+            //
+            // flip() turns each list into a badge_number-keyed set so the view
+            // does an isset() per row rather than a query or a search.
+            // filter() drops nulls before flipping: patrol_registrations
+            // .badge_number is nullable, and array_flip() warns and silently
+            // skips a null entry. A null can't match a roster badge anyway.
+            $withAccount = PatrolUnit::pluck('badge_number')->filter()->flip();
+            $awaitingReview = \App\Models\PatrolRegistration::where('status', 'pending')
+                ->pluck('badge_number')->filter()->flip();
+
             return view('toc.personnel-roster.index', [
-                'roster' => \App\Models\PersonnelRoster::latest()->get(),
-                'ranks'  => \App\Models\PersonnelRoster::RANKS,
+                'roster'         => \App\Models\PersonnelRoster::latest()->get(),
+                'ranks'          => \App\Models\PersonnelRoster::RANKS,
+                'withAccount'    => $withAccount,
+                'awaitingReview' => $awaitingReview,
             ]);
         })->name('personnel-roster.index');
 
@@ -513,8 +544,82 @@ Route::prefix('toc')
 
         Route::post('/personnel-roster/{roster}/toggle', function (\App\Models\PersonnelRoster $roster) {
             $roster->update(['is_active' => ! $roster->is_active]);
-            return back()->with('success', $roster->full_name . ($roster->is_active ? ' reactivated.' : ' deactivated.'));
+
+            // Deactivating is the switch TOC reaches for when someone is
+            // transferred, suspended or leaves, so it has to end the access
+            // they already have — not merely block a registration they've
+            // already completed. Sanctum tokens are what keep the patrol app
+            // signed in, so an officer whose roster entry is switched off
+            // would otherwise keep working from an already-issued token
+            // indefinitely; PatrolAuthController::login() authenticates
+            // against patrol_units alone and never consults the roster.
+            //
+            // Note this closes the door on an account that exists, but does
+            // not yet stop a deactivated person from logging in again if they
+            // still know their password — that needs a roster check at login,
+            // which can't be switched on until every patrol account has a
+            // matching roster entry.
+            $signedOut = false;
+
+            if (! $roster->is_active) {
+                $unit = PatrolUnit::where('badge_number', $roster->badge_number)->first();
+
+                if ($unit) {
+                    $unit->tokens()->delete();
+                    // Don't leave them sitting on the dispatch board as though
+                    // they were still available to take a call.
+                    $unit->update(['status' => 'off_duty']);
+                    $signedOut = true;
+                }
+            }
+
+            return back()->with('success', $roster->full_name
+                . ($roster->is_active ? ' reactivated.' : ' deactivated.')
+                . ($signedOut ? ' Their patrol app has been signed out.' : ''));
         })->name('personnel-roster.toggle');
+
+        // ── Twilio alert-call recordings ──────────────────────────────────
+        // The TTS alert calls placed to the TOC hotline (see
+        // EmergencyNotificationService) are recorded by Twilio; this surfaces
+        // them here instead of making someone dig through Twilio's console.
+        Route::get('/call-recordings', function (\App\Services\CallRecordingService $recordings) {
+            $list = $recordings->recent();
+
+            // Twilio recordings carry the call_sid they belong to, and
+            // incidents store the SID of the alert call placed for them —
+            // that's the only link between the two, so resolve it here in
+            // one query keyed by SID rather than per row.
+            $incidents = Incident::with('rider')
+                ->whereIn('twilio_call_sid', array_filter(array_map(
+                    fn ($recording) => $recording->callSid,
+                    $list,
+                )))
+                ->get()
+                ->keyBy('twilio_call_sid');
+
+            return view('toc.call-recordings.index', [
+                'recordings'   => $list,
+                'incidents'    => $incidents,
+                'isConfigured' => $recordings->isConfigured(),
+            ]);
+        })->name('call-recordings.index');
+
+        // Streams the audio through this app so Twilio's credentials stay
+        // server-side (their media URLs need Basic auth - see
+        // CallRecordingService::media). The SID pattern is constrained to
+        // Twilio's real recording-SID format so this can't be pointed at an
+        // arbitrary path.
+        Route::get('/call-recordings/{sid}/audio', function (string $sid, \Illuminate\Http\Request $request, \App\Services\CallRecordingService $recordings) {
+            $audio = $recordings->media($sid);
+
+            abort_if($audio === null, 404, 'Recording audio unavailable.');
+
+            return response($audio, 200, [
+                'Content-Type'        => 'audio/mpeg',
+                'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline')
+                    . '; filename="ImpactSense-call-' . $sid . '.mp3"',
+            ]);
+        })->where('sid', 'RE[0-9a-fA-F]{32}')->name('call-recordings.audio');
 
         Route::get('/patrollers', function () {
             return view('toc.patrollers.index', [
@@ -582,15 +687,25 @@ Route::prefix('investigation')
         })->name('dashboard');
         Route::get('/incidents', function () {
             $incidents = Incident::with('rider')->latest()->get();
-            // Distinct months present in the data for the date filter dropdown
+
+            // Month *and* year, newest first. This was previously the month
+            // name alone, which silently merged September 2025 with September
+            // 2026 into a single filter option — the data already spans two
+            // years, so that bucket was mixing unrelated cases together.
             $incidentMonths = $incidents
                 ->pluck('created_at')
-                ->map(fn ($d) => $d->format('F'))
+                ->sortDesc()
+                ->map(fn ($d) => $d->format('F Y'))
                 ->unique()
                 ->values();
+            // Only the types actually present, so the dropdown never offers a
+            // filter that can only ever return nothing.
+            $incidentTypes = $incidents->pluck('type')->unique()->sort()->values();
+
             return view('investigation.incidents.index', [
                 'incidents'      => $incidents,
                 'incidentMonths' => $incidentMonths,
+                'incidentTypes'  => $incidentTypes,
             ]);
         })->name('incidents.index');
         // Latest 200 incidents for the "Link to Incident" picker on the IRF
@@ -610,8 +725,12 @@ Route::prefix('investigation')
         // instead of only ever being visible via a specific incident's
         // report page. Also registered before the {incident} wildcard.
         Route::get('/incident-records/all', function () {
+            // Was an unbounded ->get() — fine while this page was a buried
+            // link, not once it's a primary nav destination expected to
+            // accumulate records indefinitely.
             return view('investigation.incident-records.all', [
-                'records' => \App\Models\IncidentRecord::with(['incident.rider', 'generatedBy'])->latest()->get(),
+                'records' => \App\Models\IncidentRecord::with(['incident.rider', 'generatedBy'])
+                    ->latest()->paginate(25),
             ]);
         })->name('incident-records.all');
 
@@ -746,12 +865,6 @@ Route::prefix('investigation')
 
             return response()->json(['success' => true, 'id' => $record->id]);
         })->name('incident-records.store');
-
-        Route::get('/incident-report', function () {
-            return view('investigation.incident-report.index', [
-                'incidents' => Incident::with('rider')->latest()->get(),
-            ]);
-        })->name('incident-report.index');
 
         Route::get('/incident-report/{incident}', function (Incident $incident) {
             $incident->load(['rider', 'patrolUnit', 'device', 'incidentRecords.generatedBy']);

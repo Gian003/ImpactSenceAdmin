@@ -22,9 +22,16 @@ class PatrolAuthController extends Controller
             return $this->apiResponse(false, 'Invalid credentials', null, 401);
         }
 
+        // Counts as a check-in, so the roster shows them online immediately
+        // rather than leaving them offline for up to 30 seconds until the
+        // location timer fires its first tick.
+        $patrol->last_seen_at = now();
+
         if ($request->filled('fcm_token')) {
-            $patrol->update(['fcm_token' => $request->fcm_token]);
+            $patrol->fcm_token = $request->fcm_token;
         }
+
+        $patrol->save();
 
         $patrol->tokens()->where('name', 'patrol-app')->delete();
         $token = $patrol->createToken('patrol-app')->plainTextToken;
@@ -46,9 +53,13 @@ class PatrolAuthController extends Controller
     {
         $patrol = $request->user();
 
+        // last_seen_at is what makes the coordinates meaningful: without it a
+        // fix pushed 30 seconds ago and one left over from a phone that has
+        // been off for a week look identical on the TOC roster.
         $patrol->update([
             'current_latitude'  => $request->latitude,
             'current_longitude' => $request->longitude,
+            'last_seen_at'      => now(),
         ]);
 
         // Live marker update on the TOC location-tracking map — non-fatal if

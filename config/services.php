@@ -54,6 +54,10 @@ return [
         'auth_token'   => env('TWILIO_AUTH_TOKEN'),
         'from_number'  => env('TWILIO_FROM_NUMBER'),
         'toc_number'   => env('TOC_HOTLINE_NUMBER'),
+        // Amazon Polly voice used for the spoken crash alert. Neural voices
+        // sound markedly less robotic than the standard set; override via
+        // env if it doesn't land well on a real handset.
+        'voice'        => env('TWILIO_VOICE', 'Polly.Matthew-Neural'),
     ],
 
 ];

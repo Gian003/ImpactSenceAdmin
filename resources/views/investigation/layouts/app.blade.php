@@ -42,6 +42,12 @@
                     Dashboard
                 </a>
 
+                {{-- The order below is the casework pipeline itself: find the
+                     case, fill in its record, then look back over what's been
+                     filed. Analytics and the device registry are reference
+                     material rather than steps, so they sit apart. --}}
+                <div class="nav-section">Casework</div>
+
                 {{-- Incidents --}}
                 <a href="{{ route('investigation.incidents.index') }}"
                     class="nav-link {{ request()->routeIs('investigation.incidents*') ? 'active' : '' }}">
@@ -54,9 +60,13 @@
                     Incidents
                 </a>
 
-                {{-- Incident Records --}}
+                {{-- Incident Record — the entry form (blank or reopened). Its
+                     route prefix (investigation.incident-records*) also
+                     covers .all (the saved-records list below), so it's
+                     explicitly excluded here — otherwise both nav items
+                     would show active at once while viewing that list. --}}
                 <a href="{{ route('investigation.incident-records.index') }}"
-                    class="nav-link {{ request()->routeIs('investigation.incident-records*') ? 'active' : '' }}">
+                    class="nav-link {{ request()->routeIs('investigation.incident-records*') && !request()->routeIs('investigation.incident-records.all') ? 'active' : '' }}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                         viewBox="0 0 24 24">
@@ -69,17 +79,25 @@
                     Incident Record
                 </a>
 
-                {{-- Incident Report --}}
-                <a href="{{ route('investigation.incident-report.index') }}"
-                    class="nav-link {{ request()->routeIs('investigation.incident-report*') ? 'active' : '' }}">
+                {{-- Saved Records — was "Incident Report", a near-duplicate of
+                     the Incidents list below (same table shape, same filters,
+                     same click-through destination). Repointed to the
+                     already-built "all saved IRFs" page, which previously had
+                     no sidebar entry at all and was only reachable via a
+                     small link buried inside the IRF form itself. --}}
+                <a href="{{ route('investigation.incident-records.all') }}"
+                    class="nav-link {{ request()->routeIs('investigation.incident-records.all') ? 'active' : '' }}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                         viewBox="0 0 24 24">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        <rect x="2" y="3" width="20" height="5" rx="1" />
+                        <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+                        <line x1="10" y1="12" x2="14" y2="12" />
                     </svg>
-                    Incident Report
+                    Saved Records
                 </a>
+
+                <div class="nav-section">Reference</div>
 
                 {{-- Accident Analytics --}}
                 <a href="{{ route('investigation.analytics.index') }}"

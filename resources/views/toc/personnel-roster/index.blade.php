@@ -149,6 +149,9 @@
                             Status</th>
                         <th
                             style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">
+                            Registered</th>
+                        <th
+                            style="padding:11px 16px; color:#fff; font-weight:700; font-size:.78rem; background:#7B1A2E; border:none;">
                         </th>
                     </tr>
                 </thead>
@@ -191,6 +194,26 @@
                                         style="display:inline-block; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:600; background:#f1f5f9; color:#475569;">Inactive</span>
                                 @endif
                             </td>
+                            {{-- Whether this authorized person has actually claimed
+                                 an account. "Not registered" is the actionable one:
+                                 TOC has approved them to register but they never
+                                 did, which is invisible anywhere else in the app. --}}
+                            <td style="padding:11px 16px; border-bottom:1px solid #f5eeef;">
+                                @if (isset($withAccount[$r->badge_number]))
+                                    <span
+                                        style="display:inline-block; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:600; background:#d1fae5; color:#065f46;">Has
+                                        account</span>
+                                @elseif (isset($awaitingReview[$r->badge_number]))
+                                    <a href="{{ route('toc.patrol-registrations.index') }}"
+                                        style="display:inline-block; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:600; background:#fef3c7; color:#92400e; text-decoration:none;"
+                                        title="This person has submitted a registration — review it">Awaiting
+                                        review</a>
+                                @else
+                                    <span
+                                        style="display:inline-block; padding:2px 10px; border-radius:20px; font-size:.72rem; font-weight:600; background:#f1f5f9; color:#64748b;">Not
+                                        registered</span>
+                                @endif
+                            </td>
                             <td style="padding:11px 16px; border-bottom:1px solid #f5eeef;">
                                 <form method="POST" action="{{ route('toc.personnel-roster.toggle', $r) }}">
                                     @csrf
@@ -203,7 +226,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="text-center text-muted py-4" style="font-size:.84rem;">
+                            <td colspan="7" class="text-center text-muted py-4" style="font-size:.84rem;">
                                 No personnel on the roster yet — add someone above before they try to register.
                             </td>
                         </tr>

@@ -72,9 +72,10 @@ class DeviceController extends Controller
             );
         }
 
-        // SMS (Semaphore) + voice call (Twilio TTS) to the rider's emergency
-        // contact. Both are non-fatal (see EmergencyNotificationService) - a
-        // failure here never blocks the incident report response below.
+        // Two different recipients, not one: Semaphore SMS goes to the
+        // rider's emergency contact, while the Twilio TTS call goes to the
+        // TOC hotline (see EmergencyNotificationService). Both are non-fatal
+        // - a failure here never blocks the incident report response below.
         $emergencyNotifier->notifyEmergencyContact($incident);
 
         return $this->apiResponse(true, 'Incident reported', [
