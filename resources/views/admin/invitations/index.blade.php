@@ -63,7 +63,7 @@
                     ({{ $invitations->count() }} total)
                 </span>
             </div>
-            <div style="overflow-x:auto;">
+            <div class="table-scroll">
                 <table class="admin-table">
                     <thead>
                         <tr>

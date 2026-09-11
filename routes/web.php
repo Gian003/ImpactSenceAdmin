@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 // ── PUBLIC ────────────────────────────────────────────────────────────────────
 Route::get('/', function () {
@@ -181,33 +182,39 @@ Route::prefix('toc')
         })->name('dashboard');
 
         Route::get('/location-tracking', function () {
+            // Shared by the alert panel's triage sort. Unknown severities sort
+            // last rather than blowing up — a missing value must not push an
+            // incident to the top of an emergency board.
+            $severityRank = fn (?string $s) => match ($s) {
+                'critical' => 4,
+                'high'     => 3,
+                'medium'   => 2,
+                'low'      => 1,
+                default    => 0,
+            };
+
             // Speed Reports per Area — compares each police-defined speed
             // zone's posted limit against real observed GPS speed samples
-            // that fall within it (see SpeedZone::distanceMeters). Done in
-            // PHP rather than raw SQL trig so it behaves identically on
-            // MySQL and SQLite.
-            $zones        = \App\Models\SpeedZone::all();
-            $speedSamples = \App\Models\SpeedReport::all(['latitude', 'longitude', 'speed_kph']);
+            // that fall within it. The aggregation lives in
+            // SpeedZone::statsFor() — it used to load the whole speed_reports
+            // table into memory here and run a PHP haversine per sample per
+            // zone, which is fine at zero rows and falls over at real volume
+            // on what is also the live dispatch board.
+            $zones = \App\Models\SpeedZone::all();
+            $stats = \App\Models\SpeedZone::statsFor($zones);
 
-            $speedZoneStats = $zones->map(function ($zone) use ($speedSamples) {
-                $samplesInZone = $speedSamples->filter(
-                    fn ($s) => \App\Models\SpeedZone::distanceMeters(
-                        (float) $zone->latitude, (float) $zone->longitude,
-                        (float) $s->latitude, (float) $s->longitude,
-                    ) <= $zone->radius_meters
-                );
-
-                $avgSpeed = $samplesInZone->isNotEmpty()
-                    ? (int) round($samplesInZone->avg('speed_kph'))
-                    : null;
+            $speedZoneStats = $zones->map(function ($zone) use ($stats) {
+                $stat = $stats[$zone->id];
 
                 return (object) [
-                    'id'              => $zone->id,
-                    'name'            => $zone->name,
-                    'speed_limit_kph' => $zone->speed_limit_kph,
-                    'sample_count'    => $samplesInZone->count(),
-                    'avg_speed'       => $avgSpeed,
-                    'is_violating'    => $avgSpeed !== null && $avgSpeed > $zone->speed_limit_kph,
+                    'id'               => $zone->id,
+                    'name'             => $zone->name,
+                    'speed_limit_kph'  => $zone->speed_limit_kph,
+                    'sample_count'     => $stat->sample_count,
+                    'avg_speed'        => $stat->avg_speed,
+                    'percentile_speed' => $stat->percentile_speed,
+                    'violation_rate'   => $stat->violation_rate,
+                    'is_violating'     => $stat->is_violating,
                 ];
             })->sortByDesc(fn ($z) => $z->is_violating ? 1 : 0)->values();
 
@@ -236,9 +243,41 @@ Route::prefix('toc')
             });
 
             return view('toc.location.index', [
-                'pendingIncidents' => Incident::with(['rider', 'patrolUnit'])
-                    ->whereIn('status', ['pending', 'dispatched'])
-                    ->latest()->take(10)->get(),
+                // The alert panel answers "what is happening now". It was
+                // answering "what has never been closed": 57 incidents were
+                // open, some more than a month old, and the ten newest were
+                // rendered as live alerts while the other 47 were invisible
+                // behind the cap with nothing saying so. A month-old
+                // unclosed case and a call from ninety seconds ago are two
+                // different problems and cannot share a panel.
+                //
+                // "arrived" belongs in the active set: a unit on scene is the
+                // point the desk most needs to see the incident, not the
+                // point it should drop off the board.
+                'pendingIncidents' => $liveIncidents = Incident::with(['rider', 'patrolUnit'])
+                    ->whereIn('status', ['pending', 'dispatched', 'arrived'])
+                    ->where('created_at', '>=', now()->subHours($liveWindowHours = Incident::LIVE_WINDOW_HOURS))
+                    ->get()
+                    // Triage order, not arrival order. Anything still pending
+                    // has nobody going to it, so it outranks everything that
+                    // has a unit assigned; within that, severity decides; and
+                    // the newest of equals sits on top.
+                    ->sortBy([
+                        fn ($a, $b) => ($a->status === 'pending' ? 0 : 1) <=> ($b->status === 'pending' ? 0 : 1),
+                        fn ($a, $b) => $severityRank($b->severity) <=> $severityRank($a->severity),
+                        fn ($a, $b) => $b->created_at <=> $a->created_at,
+                    ])
+                    ->take(12)
+                    ->values(),
+
+                'liveWindowHours' => $liveWindowHours,
+
+                // Everything still open from before the window. Counted and
+                // linked rather than drawn, because these need closing, not
+                // dispatching.
+                'backlogCount' => Incident::whereIn('status', ['pending', 'dispatched', 'arrived'])
+                    ->where('created_at', '<', now()->subHours($liveWindowHours))
+                    ->count(),
                 'patrollers' => PatrolUnit::all(),
                 // All historical incident coordinates, used to plot the
                 // accident-prone-area heatmap (as opposed to $pendingIncidents,
@@ -251,49 +290,363 @@ Route::prefix('toc')
             ]);
         })->name('location.tracking');
 
+        // ── Desk activity ──────────────────────────────────────────────────────
+        // What the desk has actually done, across every incident, from the
+        // append-only incident_events log. Per-incident history answers "what
+        // happened to this call"; this answers "what happened on this shift",
+        // which nothing could before because the record only existed as four
+        // timestamp columns per incident.
+        Route::get('/activity', function (Request $request) {
+            $ranges = [
+                'today' => 'Today',
+                '24h'   => 'Last 24 hours',
+                '7d'    => 'Last 7 days',
+                '30d'   => 'Last 30 days',
+                'all'   => 'All time',
+            ];
+
+            $range = array_key_exists($request->input('range'), $ranges)
+                ? $request->input('range')
+                : '7d';
+
+            $since = match ($range) {
+                'today' => now()->startOfDay(),
+                '24h'   => now()->subDay(),
+                '7d'    => now()->subDays(7),
+                '30d'   => now()->subDays(30),
+                default => null,
+            };
+
+            $events = \App\Models\IncidentEvent::with('incident.rider')
+                ->when($since, fn ($q) => $q->where('occurred_at', '>=', $since))
+                ->when($request->input('type'), fn ($q, $t) => $q->where('type', $t))
+                ->when($request->input('actor'), fn ($q, $a) => $q->where('actor_type', $a))
+                ->orderByDesc('occurred_at')
+                ->orderByDesc('id')
+                ->paginate(50)
+                ->withQueryString();
+
+            // Response times come from the incidents table rather than the log:
+            // those columns are exact, indexed, and — now that reassignment no
+            // longer overwrites dispatched_at — actually mean "first dispatch".
+            $timed = Incident::query()
+                ->when($since, fn ($q) => $q->where('created_at', '>=', $since))
+                ->whereNotNull('dispatched_at')
+                ->get(['created_at', 'dispatched_at', 'arrived_at']);
+
+            $median = function (array $values): ?int {
+                if (! $values) {
+                    return null;
+                }
+                sort($values);
+                $mid = intdiv(count($values), 2);
+
+                // Median rather than mean: one incident dispatched three weeks
+                // late would drag an average into meaninglessness, and the
+                // backlog says that has happened.
+                return (int) round(count($values) % 2
+                    ? $values[$mid]
+                    : ($values[$mid - 1] + $values[$mid]) / 2);
+            };
+
+            $toDispatch = $timed
+                ->map(fn ($i) => $i->created_at->diffInSeconds($i->dispatched_at, absolute: true))
+                ->all();
+
+            $toArrive = $timed->filter(fn ($i) => $i->arrived_at !== null)
+                ->map(fn ($i) => $i->dispatched_at->diffInSeconds($i->arrived_at, absolute: true))
+                ->values()->all();
+
+            return view('toc.activity.index', [
+                'events'          => $events,
+                'ranges'          => $ranges,
+                'range'           => $range,
+                'type'            => $request->input('type'),
+                'actor'           => $request->input('actor'),
+                'types'           => \App\Models\IncidentEvent::query()
+                    ->select('type')->distinct()->orderBy('type')->pluck('type'),
+                'medianToDispatch' => $median($toDispatch),
+                'medianToArrive'   => $median($toArrive),
+                'dispatchSample'   => count($toDispatch),
+                'arriveSample'     => count($toArrive),
+                // Reconstructed rows carry real timestamps but no actor, so
+                // the page has to say how much of what it shows was inferred.
+                'reconstructedCount' => (clone $events)->getCollection()
+                    ->where('reconstructed', true)->count(),
+            ]);
+        })->name('activity.index');
+
+        // ── Incidents (TOC view) ───────────────────────────────────────────────
+        // Deliberately not the investigation incident-report page, which the
+        // alert panel used to link to. That page has grown to hold responder
+        // field reports with crash-scene photographs and generated IRF
+        // records — evidentiary case material. The TOC desk dispatches these
+        // incidents and needs to see who, where, when, how bad and who is
+        // going; it does not need photographs of injured people to do that.
+        Route::get('/incidents', function (Request $request) {
+            $query = Incident::with(['rider', 'patrolUnit', 'device']);
+
+            // Defaults to what is still open, because the reason an operator
+            // arrives here is the backlog notice on the tracking board.
+            $status = $request->input('status', 'open');
+            if ($status === 'open') {
+                $query->whereIn('status', ['pending', 'dispatched', 'arrived']);
+            } elseif ($status === 'ageing') {
+                // Still open, and older than the tracking board's live window.
+                // A pseudo-status rather than a separate parameter, because to
+                // an operator "ageing" is a kind of open incident, not an extra
+                // switch to remember to combine with one.
+                $query->whereIn('status', ['pending', 'dispatched', 'arrived'])
+                    ->where('created_at', '<', now()->subHours(Incident::LIVE_WINDOW_HOURS));
+            } elseif ($status !== 'all') {
+                $query->where('status', $status);
+            }
+
+            if ($severity = $request->input('severity')) {
+                $query->where('severity', $severity);
+            }
+
+            if ($search = trim((string) $request->input('q'))) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('address', 'like', "%{$search}%")
+                        ->orWhereHas('rider', fn ($r) => $r->where('full_name', 'like', "%{$search}%"));
+                });
+            }
+
+            // Oldest first when looking at open incidents: the ones that have
+            // been sitting longest are the ones nobody has dealt with.
+            $incidents = $query
+                ->orderBy('created_at', in_array($status, ['open', 'ageing'], true) ? 'asc' : 'desc')
+                ->paginate(25)
+                ->withQueryString();
+
+            // Counts for the triage strip. Every tile is a one-click filter,
+            // which is what an operator arriving at a 57-item backlog actually
+            // wants — not to read a table and work out where to start.
+            $openStatuses = ['pending', 'dispatched', 'arrived'];
+            $byStatus = Incident::whereIn('status', $openStatuses)
+                ->selectRaw('status, count(*) as total')
+                ->groupBy('status')
+                ->pluck('total', 'status');
+
+            return view('toc.incidents.index', [
+                'incidents'       => $incidents,
+                'status'          => $status,
+                'severity'        => $request->input('severity'),
+                'q'               => $search,
+                'liveWindowHours' => Incident::LIVE_WINDOW_HOURS,
+                'openCount'       => $byStatus->sum(),
+                'counts'          => [
+                    'pending'    => $byStatus['pending'] ?? 0,
+                    'dispatched' => $byStatus['dispatched'] ?? 0,
+                    'arrived'    => $byStatus['arrived'] ?? 0,
+                    'critical'   => Incident::whereIn('status', $openStatuses)
+                        ->where('severity', 'critical')->count(),
+                    'ageing'     => Incident::whereIn('status', $openStatuses)
+                        ->where('created_at', '<', now()->subHours(Incident::LIVE_WINDOW_HOURS))
+                        ->count(),
+                ],
+            ]);
+        })->name('incidents.index');
+
+        Route::get('/incidents/{incident}', function (Incident $incident) {
+            $incident->load(['rider', 'patrolUnit', 'device', 'fieldReports.patrolUnit', 'events']);
+
+            return view('toc.incidents.show', [
+                'incident'   => $incident,
+                'patrollers' => PatrolUnit::all(),
+                // The append-only log, not four mutable columns. It can hold
+                // the same event twice — a reassignment — and it records who
+                // acted, which no column ever could.
+                'events'     => $incident->events,
+            ]);
+        })->name('incidents.show');
+
         // ── Speed zones — police-maintained posted speed limits ────────────────
+
+        // Shared by store and update so the two can't validate differently.
+        $speedZoneRules = [
+            'name'             => ['required', 'string', 'max:255'],
+            // The road centreline, drawn on the map. A single point is still
+            // valid and behaves as the circle zones used to.
+            'path'             => ['required', 'array', 'min:1', 'max:200'],
+            'path.*.lat'       => ['required', 'numeric', 'between:-90,90'],
+            'path.*.lng'       => ['required', 'numeric', 'between:-180,180'],
+            // Half-width of the corridor, not a circle radius. Capped tighter
+            // than before: 500 m either side of a centreline is already far
+            // wider than any carriageway, and the old 5 km ceiling only made
+            // sense when a zone was a blob covering a district.
+            'radius_meters'    => ['required', 'integer', 'min:5', 'max:500'],
+            'speed_limit_kph'  => ['required', 'integer', 'min:1', 'max:200'],
+            'allow_overlap'    => ['sometimes', 'boolean'],
+        ];
+
+        // A hidden input can only carry a string, so the traced path arrives as
+        // JSON text and has to become an array before the array rules above
+        // can look at it. Without this every save failed with "The path field
+        // must be an array" — the rules were right, the form simply cannot
+        // send what they wanted.
+        $speedZoneNormalise = function (Request $request): void {
+            $path = $request->input('path');
+
+            if (! is_string($path)) {
+                return;   // already an array (an API client, or a test)
+            }
+
+            $decoded = json_decode($path, true);
+
+            // A malformed or empty value becomes an empty array rather than
+            // null, so it fails the "required" rule with a message about
+            // tracing the road instead of a JSON parse error.
+            $request->merge([
+                'path' => is_array($decoded) ? $decoded : [],
+            ]);
+        };
+
+        // Phrased for whoever is drawing the zone, not for whoever wrote the
+        // validation rules.
+        $speedZoneMessages = [
+            'path.required' => 'Trace the road on the map before saving — press "Trace road", then click along it.',
+            'path.array'    => 'The traced road could not be read. Press "Clear" and trace it again.',
+            'path.min'      => 'Trace the road on the map before saving — press "Trace road", then click along it.',
+            'path.max'      => 'That corridor has too many points. Trace it with fewer clicks, or split it into two zones.',
+            'path.*.lat.required'  => 'One of the traced points is missing its latitude. Press "Clear" and trace it again.',
+            'path.*.lng.required'  => 'One of the traced points is missing its longitude. Press "Clear" and trace it again.',
+            'radius_meters.min' => 'A corridor needs at least a 5 m half-width.',
+            'radius_meters.max' => 'A corridor half-width above 500 m is wider than any carriageway — use a smaller number.',
+        ];
+
+        // latitude/longitude stay on the row as the corridor's midpoint —
+        // every map that plots a zone as a single marker still has somewhere
+        // to put it, and nothing downstream had to learn about paths.
+        $speedZoneAttributes = function (array $data): array {
+            $path = array_values(array_map(
+                fn ($p) => ['lat' => (float) $p['lat'], 'lng' => (float) $p['lng']],
+                $data['path']
+            ));
+
+            $mid = $path[intdiv(count($path), 2)];
+
+            return [
+                'name'            => $data['name'],
+                'path'            => $path,
+                'latitude'        => $mid['lat'],
+                'longitude'       => $mid['lng'],
+                'radius_meters'   => $data['radius_meters'],
+                'speed_limit_kph' => $data['speed_limit_kph'],
+            ];
+        };
+
+        // Refuses a zone that overlaps an existing one, unless the operator
+        // has deliberately allowed it. Blocking by default because the damage
+        // is silent: a sample inside the shared area is counted toward both
+        // zones' averages, and a flagged street gives no clue which posted
+        // limit the reading was judged against. The escape hatch exists for
+        // the legitimate case of a small zone deliberately sitting inside a
+        // larger stretch.
+        $speedZoneOverlap = function (Request $request, array $data, ?int $ignoreId) {
+            if ($request->boolean('allow_overlap')) {
+                return null;
+            }
+
+            $path = array_map(
+                fn ($p) => ['lat' => (float) $p['lat'], 'lng' => (float) $p['lng']],
+                $data['path']
+            );
+
+            $clash = \App\Models\SpeedZone::overlapping(
+                $path,
+                (int) $data['radius_meters'],
+                $ignoreId,
+            );
+
+            if (! $clash) {
+                return null;
+            }
+
+            $candidate = new \App\Models\SpeedZone([
+                'path'          => $path,
+                'radius_meters' => (int) $data['radius_meters'],
+            ]);
+            $metres = (int) round($candidate->distanceToZoneMeters($clash));
+
+            return back()->withInput()->withErrors([
+                'path' => "This corridor comes within {$metres} m of \"{$clash->name}\", which has a "
+                    . "{$clash->radius_meters} m half-width — closer than the {$data['radius_meters']} m "
+                    . "+ {$clash->radius_meters} m needed to keep them apart. Samples in the shared "
+                    . "stretch would count toward both zones. Redraw it, narrow the corridor, or tick "
+                    . "\"allow overlap\" if the two genuinely share road.",
+            ]);
+        };
         Route::get('/speed-zones', function () {
-            $zones        = \App\Models\SpeedZone::with('creator')->latest()->get();
-            $speedSamples = \App\Models\SpeedReport::all(['latitude', 'longitude', 'speed_kph']);
-
-            $speedZoneStats = $zones->mapWithKeys(function ($zone) use ($speedSamples) {
-                $samplesInZone = $speedSamples->filter(
-                    fn ($s) => \App\Models\SpeedZone::distanceMeters(
-                        (float) $zone->latitude, (float) $zone->longitude,
-                        (float) $s->latitude,    (float) $s->longitude,
-                    ) <= $zone->radius_meters
-                );
-
-                $avgSpeed = $samplesInZone->isNotEmpty()
-                    ? (int) round($samplesInZone->avg('speed_kph'))
-                    : null;
-
-                return [$zone->id => (object) [
-                    'avg_speed'    => $avgSpeed,
-                    'sample_count' => $samplesInZone->count(),
-                    'is_violating' => $avgSpeed !== null && $avgSpeed > $zone->speed_limit_kph,
-                ]];
-            });
+            $zones = \App\Models\SpeedZone::with('creator')->latest()->get();
 
             return view('toc.speed-zones.index', [
                 'zones'          => $zones,
-                'speedZoneStats' => $speedZoneStats,
+                'speedZoneStats' => \App\Models\SpeedZone::statsFor($zones),
+                'windowDays'     => \App\Models\SpeedZone::WINDOW_DAYS,
+                'percentile'     => \App\Models\SpeedZone::PERCENTILE,
+                // Whether anything is actually feeding the table. An empty
+                // comparison reads as broken unless the page says why.
+                'totalSamples'   => \App\Models\SpeedReport::count(),
+                // Edit reuses the add form — same fields, same map picker —
+                // rather than a second form that would drift out of step
+                // with it. ?edit={id} switches it into update mode.
+                'editing'        => $editingZone = request()->filled('edit')
+                    ? $zones->firstWhere('id', (int) request('edit'))
+                    : null,
+                // Shapes for the map picker. Built here rather than in a Blade
+                // loop so the view ships one JSON blob instead of generating
+                // JavaScript per zone.
+                'zoneOverlays'   => $zones->map(fn ($z) => [
+                    'name'    => $z->name,
+                    'path'    => collect($z->pathPoints())
+                        ->map(fn ($pt) => ['lat' => $pt[0], 'lng' => $pt[1]])->all(),
+                    'radius'  => $z->radius_meters,
+                    'editing' => $editingZone !== null && $editingZone->id === $z->id,
+                ])->values(),
             ]);
         })->name('speed-zones.index');
 
-        Route::post('/speed-zones', function (Request $request) {
-            $data = $request->validate([
-                'name'             => ['required', 'string', 'max:255'],
-                'latitude'         => ['required', 'numeric', 'between:-90,90'],
-                'longitude'        => ['required', 'numeric', 'between:-180,180'],
-                'radius_meters'    => ['required', 'integer', 'min:10', 'max:5000'],
-                'speed_limit_kph'  => ['required', 'integer', 'min:1', 'max:200'],
-            ]);
+        Route::post('/speed-zones', function (Request $request) use (
+            $speedZoneRules, $speedZoneOverlap, $speedZoneAttributes,
+            $speedZoneNormalise, $speedZoneMessages
+        ) {
+            $speedZoneNormalise($request);
+            $data = $request->validate($speedZoneRules, $speedZoneMessages);
 
-            \App\Models\SpeedZone::create($data + ['created_by' => Auth::guard('toc')->id()]);
+            if ($clash = $speedZoneOverlap($request, $data, null)) {
+                return $clash;
+            }
+
+            \App\Models\SpeedZone::create(
+                $speedZoneAttributes($data) + ['created_by' => Auth::guard('toc')->id()]
+            );
 
             return back()->with('success', "Speed zone \"{$data['name']}\" added.");
         })->name('speed-zones.store');
+
+        // Zones were previously add-and-delete only, so correcting a mistyped
+        // radius meant destroying the row and losing who created it and when.
+        Route::put('/speed-zones/{speedZone}', function (
+            Request $request, \App\Models\SpeedZone $speedZone
+        ) use (
+            $speedZoneRules, $speedZoneOverlap, $speedZoneAttributes,
+            $speedZoneNormalise, $speedZoneMessages
+        ) {
+            $speedZoneNormalise($request);
+            $data = $request->validate($speedZoneRules, $speedZoneMessages);
+
+            if ($clash = $speedZoneOverlap($request, $data, $speedZone->id)) {
+                return $clash;
+            }
+
+            $speedZone->update($speedZoneAttributes($data));
+
+            return redirect()
+                ->route('toc.speed-zones.index')
+                ->with('success', "Speed zone \"{$speedZone->name}\" updated.");
+        })->name('speed-zones.update');
 
         Route::delete('/speed-zones/{speedZone}', function (\App\Models\SpeedZone $speedZone) {
             $speedZone->delete();
@@ -309,11 +662,36 @@ Route::prefix('toc')
 
             $patrol = PatrolUnit::find($data['patrol_unit_id']);
 
+            $previousUnit  = $incident->patrolUnit;
+            $isReassign    = $previousUnit !== null && $previousUnit->id !== $patrol->id;
+            $statusFrom    = $incident->status;
+
             $incident->update([
                 'patrol_unit_id' => $patrol->id,
                 'status'         => 'dispatched',
-                'dispatched_at'  => now(),
+                // Only stamped on the first dispatch. It used to be
+                // overwritten every time, so reassigning a call destroyed the
+                // original dispatch time and the timeline then showed the new
+                // unit at the new time as though nothing else had happened.
+                // The reassignment itself is a row in incident_events.
+                'dispatched_at'  => $incident->dispatched_at ?? now(),
             ]);
+
+            \App\Models\IncidentEvent::record(
+                $incident,
+                $isReassign
+                    ? \App\Models\IncidentEvent::REASSIGNED
+                    : \App\Models\IncidentEvent::DISPATCHED,
+                [
+                    'status_from' => $statusFrom,
+                    'status_to'   => 'dispatched',
+                    'payload'     => array_filter([
+                        'patrol_unit'   => $patrol->full_name,
+                        'badge'         => $patrol->badge_number,
+                        'previous_unit' => $isReassign ? $previousUnit->full_name : null,
+                    ]),
+                ],
+            );
 
             // Patrol unit's own status was previously never updated on
             // dispatch, so it always read "off_duty" no matter what — the
@@ -335,7 +713,13 @@ Route::prefix('toc')
                 $patrol,
                 'Dispatch Alert',
                 "Respond to {$incident->type} at {$incident->address}",
-                ['incident_id' => (string) $incident->id, 'type' => 'dispatch']
+                [
+                    'incident_id' => (string) $incident->id,
+                    'type'        => 'dispatch',
+                    // See the note in IncidentController::updateStatus.
+                    'severity'    => (string) $incident->severity,
+                    'address'     => (string) $incident->address,
+                ]
             );
 
             return back()->with('dispatched', "Patrol {$patrol->full_name} dispatched.");
@@ -867,10 +1251,16 @@ Route::prefix('investigation')
         })->name('incident-records.store');
 
         Route::get('/incident-report/{incident}', function (Incident $incident) {
-            $incident->load(['rider', 'patrolUnit', 'device', 'incidentRecords.generatedBy']);
+            $incident->load([
+                'rider', 'patrolUnit', 'device', 'incidentRecords.generatedBy',
+                'fieldReports.patrolUnit', 'fieldReports.photos',
+            ]);
             return view('investigation.incident-report.show', [
                 'incident'     => $incident,
                 'incidentRecords' => $incident->incidentRecords->sortByDesc('created_at'),
+                // What the responding unit actually said, kept separate from
+                // the investigator's IRF — see IncidentFieldReport.
+                'fieldReports' => $incident->fieldReports,
                 'fullName'     => $incident->rider?->full_name     ?? 'N/A',
                 'datetime'     => $incident->created_at->format('F d, h:i A'),
                 'coordinates'  => '('.$incident->latitude.'° N, '.$incident->longitude.'° E)',
@@ -899,6 +1289,7 @@ Route::prefix('investigation')
                 'timeline'     => collect([
                     ['time' => $incident->created_at->format('h:i A'),      'description' => 'Incident reported'],
                     ['time' => $incident->dispatched_at?->format('h:i A') ?? '—', 'description' => 'Patrol dispatched'],
+                    ['time' => $incident->arrived_at?->format('h:i A')    ?? '—', 'description' => 'Patrol arrived on scene'],
                     ['time' => $incident->resolved_at?->format('h:i A')   ?? '—', 'description' => 'Incident resolved'],
                 ])->filter(fn($e) => $e['time'] !== '—'),
             ]);
@@ -973,3 +1364,27 @@ Route::prefix('investigation')
             ));
         })->name('analytics.index');
     });
+
+// ── SCENE PHOTOGRAPHS ─────────────────────────────────────────────────────────
+// Field photos live on the private disk and are only ever readable through
+// here. They show injured people, faces and plate numbers, and the dashboard
+// is served over a public tunnel — an unguessable URL is not access control.
+//
+// Open to both desks: the TOC watches the incident come in and investigation
+// writes it up, and both legitimately need to see what the responder saw.
+Route::get('/incident-field-photos/{photo}', function (\App\Models\IncidentFieldPhoto $photo) {
+    abort_unless($photo->exists(), 404, 'The photograph is no longer on disk.');
+
+    return Storage::disk(\App\Models\IncidentFieldPhoto::DISK)->response(
+        $photo->path,
+        $photo->original_filename ?: "scene-photo-{$photo->id}.jpg",
+        [
+            'Content-Type'           => $photo->mime_type ?: 'image/jpeg',
+            'Content-Disposition'    => 'inline',
+            // Nothing about a crash-scene photograph should sit in a shared
+            // proxy cache or on disk after the tab closes.
+            'Cache-Control'          => 'private, no-store, max-age=0',
+            'X-Content-Type-Options' => 'nosniff',
+        ]
+    );
+})->middleware('auth:toc,investigation')->name('incident-field-photos.show');

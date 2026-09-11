@@ -19,7 +19,7 @@
                     + Invite TOC Officer
                 </a>
             </div>
-            <div style="overflow-x:auto;">
+            <div class="table-scroll">
                 <table class="admin-table">
                     <thead>
                         <tr>
@@ -84,7 +84,7 @@
                     + Invite Investigation Officer
                 </a>
             </div>
-            <div style="overflow-x:auto;">
+            <div class="table-scroll">
                 <table class="admin-table">
                     <thead>
                         <tr>

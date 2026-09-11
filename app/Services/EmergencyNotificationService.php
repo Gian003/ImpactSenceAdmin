@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Incident;
+use Illuminate\Support\Facades\Log;
 
 class EmergencyNotificationService
 {
@@ -33,26 +34,50 @@ class EmergencyNotificationService
         // Resolved once and shared by both channels. Persisted back onto the
         // incident when it had none, so every other page showing this crash
         // gets a real place name too instead of a blank Address column.
-        $place = $this->resolvePlace($incident);
+        // Even the geocoder is an outbound call, and this whole method runs
+        // inside the crash-report request.
+        try {
+            $place = $this->resolvePlace($incident);
+        } catch (\Throwable $e) {
+            Log::warning('Geocoding failed', ['incident' => $incident->id, 'error' => $e->getMessage()]);
+            $place = $incident->address;
+        }
 
-        // SMS to emergency contact
+        // Each channel is guarded on its own. The comment above has always
+        // claimed these are non-fatal, and that was true of a failed API
+        // response but not of a network exception: a Semaphore timeout threw
+        // straight out of here and took the caller's request with it. Wrapping
+        // them separately also means a dead SMS gateway no longer prevents the
+        // TOC hotline from ringing — previously the first throw stopped both.
         $contact = $incident->rider?->emergencyContacts->first();
         if ($contact) {
-            $this->sms->send($contact->phone_number, $this->buildSmsMessage($incident, $place));
+            try {
+                $this->sms->send($contact->phone_number, $this->buildSmsMessage($incident, $place));
+            } catch (\Throwable $e) {
+                Log::error('Emergency SMS failed', [
+                    'incident' => $incident->id, 'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         // Twilio AI voice call to TOC hotline
         $tocNumber = config('services.twilio.toc_number');
         if ($tocNumber) {
+            try {
             // Stored so the Call Recordings page can say which crash each
             // recording was about — Twilio's recordings carry a call_sid,
             // and this is the only thing tying that back to an incident.
             // Still non-fatal: a null SID (Twilio down or unconfigured) just
             // leaves the incident unlinked rather than failing the report.
-            $callSid = $this->voiceCall->call($tocNumber, $this->buildSpokenLines($incident, $place));
+                $callSid = $this->voiceCall->call($tocNumber, $this->buildSpokenLines($incident, $place));
 
-            if ($callSid) {
-                $incident->update(['twilio_call_sid' => $callSid]);
+                if ($callSid) {
+                    $incident->update(['twilio_call_sid' => $callSid]);
+                }
+            } catch (\Throwable $e) {
+                Log::error('TOC voice call failed', [
+                    'incident' => $incident->id, 'error' => $e->getMessage(),
+                ]);
             }
         }
     }

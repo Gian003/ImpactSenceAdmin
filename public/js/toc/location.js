@@ -41,13 +41,17 @@
         // reachable straight from the marker for an operator who's already looking
         // at the map instead of having to go find the matching card.
         const dispatchUrlTemplate = window.LocationTrackingConfig.dispatchUrlTemplate;
+        const INCIDENT_REPORT_URL = window.LocationTrackingConfig.incidentReportUrlTemplate ?? null;
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
         function dispatchFormHtml(id) {
             if (!patrollersData.length) return '';
-            const options = patrollersData.map(p =>
-                `<option value="${p.id}">${p.full_name} (${p.badge_number ?? ''}) &mdash; ${p.status}</option>`
-            ).join('');
+            const options = patrollersData.map(p => {
+                const busy = p.status === 'dispatched';
+                return `<option value="${p.id}"${busy ? ' disabled' : ''}>`
+                    + `${p.full_name} (${p.badge_number ?? ''}) &mdash; `
+                    + `${busy ? 'on a call' : 'stand by'}</option>`;
+            }).join('');
             const action = dispatchUrlTemplate.replace('__ID__', id);
             return `
         <form method="POST" action="${action}" style="margin-top:8px;">
@@ -64,6 +68,38 @@
         </form>`;
         }
 
+        // Same palette the server renders cards with, and the map markers use.
+        // A live-inserted card that did not match its own page-load twin was
+        // the sort of thing an operator notices and stops trusting.
+        const SEVERITY_STYLE = {
+            critical: ['#b91c1c', '#fef2f2'],
+            high:     ['#c2410c', '#fff7ed'],
+            medium:   ['#a16207', '#fefce8'],
+            low:      ['#15803d', '#f0fdf4'],
+        };
+        const severityStyle = sev => SEVERITY_STYLE[sev] ?? ['#64748b', '#f8fafc'];
+
+        const STATUS_CHIP = {
+            pending:    ['#b91c1c', 'PENDING'],
+            dispatched: ['#2a7c5b', 'DISPATCHED'],
+            arrived:    ['#5b21b6', 'ON SCENE'],
+        };
+
+        /**
+         * Speaks a new alert to assistive technology.
+         *
+         * The panel had an audio beep and nothing in the accessibility tree,
+         * so an operator using a screen reader got no notification of an
+         * incoming emergency at all.
+         */
+        function announceAlert(text) {
+            const el = document.getElementById('alert-announcer');
+            if (!el) return;
+            // Cleared first so an identical consecutive message is still read.
+            el.textContent = '';
+            setTimeout(() => { el.textContent = text; }, 60);
+        }
+
         function formatAgo(ms) {
             const mins = Math.floor(ms / 60000);
             if (mins < 1) return 'just now';
@@ -78,6 +114,7 @@
             const statusColors = {
                 pending: '#b91c1c',
                 dispatched: '#2a7c5b',
+                arrived: '#7c3aed',
                 resolved: '#64748b',
                 false_alarm: '#64748b'
             };
@@ -168,6 +205,11 @@
             trafficOn = !trafficOn;
             trafficLayer.setMap(trafficOn ? map : null);
             document.getElementById('btnTraffic').classList.toggle('active', trafficOn);
+
+            // The traffic section of the Map Key follows the layer, so the key
+            // never explains something that isn't on screen.
+            const trafficKey = document.getElementById('mapKeyTraffic');
+            if (trafficKey) trafficKey.classList.toggle('show', trafficOn);
         };
 
         // Also independent of the exclusive panels — an operator may want satellite
@@ -193,12 +235,22 @@
             critical: 40
         };
 
+        // Pin colour by status. 'arrived' was previously falling through to the
+        // red pending pin, so an incident with a unit standing on the scene was
+        // indistinguishable on the board from one nobody had responded to yet —
+        // the exact distinction the status was added to make. Purple matches the
+        // violet used for "on scene" on the incidents list, the report page and
+        // the rider's own app.
+        const incidentPins = {
+            dispatched: 'orange-dot',
+            arrived: 'purple-dot',
+        };
+
         function incidentIcon(status, severity) {
             const size = severityIconSizes[severity] ?? severityIconSizes.high;
+            const pin = incidentPins[status] ?? 'red-dot';
             return {
-                url: status === 'dispatched' ?
-                    'https://maps.google.com/mapfiles/ms/icons/orange-dot.png' :
-                    'https://maps.google.com/mapfiles/ms/icons/red-dot.png',
+                url: `https://maps.google.com/mapfiles/ms/icons/${pin}.png`,
                 scaledSize: new google.maps.Size(size, size),
             };
         }
@@ -207,8 +259,13 @@
         // loop per critical incident, and there should rarely be many at once) but
         // makes the "this one needs attention now" signal impossible to miss at a
         // glance, on top of the larger marker size above.
+        const haloColors = {
+            dispatched: '#f59e0b',
+            arrived: '#7c3aed',
+        };
+
         function haloColor(status) {
-            return status === 'dispatched' ? '#f59e0b' : '#dc2626';
+            return haloColors[status] ?? '#dc2626';
         }
 
         function startCriticalHalo(id, lat, lng, status) {
@@ -686,10 +743,57 @@
             function handlePatrolUpdate(p) {
                 upsertPatrolMarker(p);
                 upsertPatrolRow(p);
+                syncPatrollersData(p);
+                refreshDispatchSelects();
+            }
+
+            /** Keeps the in-memory roster in step with what Pusher just sent. */
+            function syncPatrollersData(p) {
+                const existing = patrollersData.find(u => String(u.id) === String(p.id));
+                if (existing) {
+                    Object.assign(existing, p);
+                } else {
+                    patrollersData.push(p);
+                }
+            }
+
+            /**
+             * Rebuilds the options in every dispatch dropdown from current
+             * patrol status.
+             *
+             * The dropdowns were rendered once at page load and never touched
+             * again, so an operator could pick a unit that had been dispatched
+             * to another call ten minutes earlier — the select still showed it
+             * as off duty. Units already on a call now say so and cannot be
+             * chosen; the operator's current selection is preserved so a
+             * refresh mid-decision does not silently reset it.
+             */
+            function refreshDispatchSelects() {
+                document.querySelectorAll('select[name="patrol_unit_id"]').forEach(select => {
+                    const chosen = select.value;
+
+                    const options = patrollersData.map(u => {
+                        const busy = u.status === 'dispatched';
+                        const label = `${u.full_name} (${u.badge_number ?? ''}) \u2014 `
+                            + (busy ? 'on a call' : 'stand by');
+                        return `<option value="${u.id}"${busy ? ' disabled' : ''}>${label}</option>`;
+                    }).join('');
+
+                    select.innerHTML =
+                        '<option value="">Select patrol unit\u2026</option>' + options;
+
+                    // Restore the pick unless that unit has since gone busy.
+                    if (chosen) {
+                        const stillFree = patrollersData.some(
+                            u => String(u.id) === String(chosen) && u.status !== 'dispatched');
+                        if (stillFree) select.value = chosen;
+                    }
+                });
             }
 
             patrollersData = window.LocationTrackingConfig.patrollers;
             patrollersData.forEach(handlePatrolUpdate);
+            refreshDispatchSelects();
 
             if (window.pusherClient) {
                 window.pusherClient.subscribe('patrol-locations')
@@ -763,19 +867,22 @@
                     patrolUnitBadge: null,
                 };
 
+                const [sevColor, sevBg] = severityStyle(data.severity);
+
                 const col = document.createElement('div');
                 col.className = 'col-md-6';
                 col.dataset.incidentId = data.id;
+                col.dataset.severity = data.severity ?? '';
                 col.dataset.reportedAt = data.reported_at ?? new Date().toISOString();
                 col.innerHTML = `
-            <div class="p-3 position-relative rounded-3 border border-2"
-                 style="background:#fde8e8; border-color:#d97070 !important;">
+            <div class="p-3 position-relative rounded-3 alert-card"
+                 style="background:${sevBg}; border-left:5px solid ${sevColor};">
                 <span class="position-absolute rounded-circle d-flex align-items-center justify-content-center fw-black text-white"
-                      style="top:12px; right:12px; width:28px; height:28px; background:#1a1a1a; font-size:1rem;">!</span>
+                      style="top:12px; right:12px; width:28px; height:28px; background:${sevColor}; font-size:1rem;">!</span>
                 <h6 class="fw-bold mb-2">Accident Alert!
                     <span class="badge ms-2" style="font-size:.88rem; background:#b91c1c;">PENDING</span>
-                    <span class="badge ms-1" style="font-size:.88rem; background:#7B1A2E;">LIVE</span>
-                    ${data.severity === 'critical' ? '<span class="badge ms-1" style="font-size:.88rem; background:#7B1A2E;">CRITICAL</span>' : ''}
+                    <span class="badge ms-1 badge-live" style="font-size:.88rem; background:#7B1A2E;">LIVE</span>
+                    <span class="badge ms-1" style="font-size:.88rem; background:${sevColor};">${(data.severity ?? 'unknown').toUpperCase()}</span>
                 </h6>
                 <div class="reported-line" style="font-size:.88rem; color:#64748b; margin-bottom:8px;">
                     Reported <span class="reported-ago">just now</span>
@@ -786,7 +893,11 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                             ${riderName}
                         </div>
-                        <div class="ps-3 text-dark" style="font-size:.88rem;">${phone}</div>
+                        <div class="ps-3" style="font-size:.88rem;">${
+                            phone && phone !== '—'
+                                ? `<a href="tel:${phone.replace(/\D/g, '')}" class="text-dark fw-semibold" style="text-decoration:none;">${phone}</a>`
+                                : '<span class="text-dark">&mdash;</span>'
+                        }</div>
                     </div>
                     <div class="col-6">
                         <div class="d-flex align-items-center gap-1 mb-1 fw-bold" style="font-size:.85rem;">
@@ -797,12 +908,27 @@
                     </div>
                 </div>
                 <div class="dispatch-note mt-1" style="font-size:.86rem; color:#7B1A2E; font-weight:600;">
-                    Severity: ${data.severity ?? '—'} — refresh page to dispatch a patrol unit
+                    Refresh the page to dispatch a patrol unit
                 </div>
+                ${INCIDENT_REPORT_URL ? `
+                <a href="${INCIDENT_REPORT_URL.replace('__ID__', data.id)}" target="_blank"
+                   class="d-inline-block mt-2"
+                   style="font-size:.8rem; color:#1b3d52; font-weight:600; text-decoration:none;">
+                    View incident &#8594;
+                </a>` : ''}
             </div>`;
 
                 row.prepend(col);
                 refreshReportedAgo();
+
+                announceAlert(
+                    `New ${data.severity ?? ''} severity accident alert. ` +
+                    `${riderName} at ${address}.`);
+
+                // "LIVE" meant "arrived while you were watching", but nothing
+                // ever took it off — an hour-old card still claimed to be
+                // live. It now expires on its own.
+                setTimeout(() => col.querySelector('.badge-live')?.remove(), 60000);
 
                 // Drop a new marker on the map (if Google Maps has loaded), sized by
                 // severity the same way the page-load markers are.
@@ -857,6 +983,32 @@
                         row.style.display = 'none';
                         if (banner) banner.style.display = '';
                     }
+                    return;
+                }
+
+                // Added with the 'arrived' status and missed here, so a unit
+                // reporting on scene left the card still reading DISPATCHED
+                // while the server-rendered version said "On scene" — the
+                // board told you different things depending on whether you
+                // had reloaded.
+                if (data.status === 'arrived') {
+                    if (incidentDataById[data.id]) {
+                        incidentDataById[data.id].status = 'arrived';
+                    }
+                    if (card) {
+                        const badge = card.querySelector('.badge');
+                        if (badge) {
+                            badge.textContent = STATUS_CHIP.arrived[1];
+                            badge.style.background = STATUS_CHIP.arrived[0];
+                        }
+                        const note = card.querySelector('.dispatch-note');
+                        if (note) {
+                            note.style.color = '#5b21b6';
+                            note.textContent = '\u25CF On scene'
+                                + (data.patrol_unit?.full_name ? ': ' + data.patrol_unit.full_name : '');
+                        }
+                    }
+                    if (marker) marker.setIcon(incidentIcon('arrived', data.severity));
                     return;
                 }
 

@@ -1,0 +1,537 @@
+/* ── TOC incidents ─────────────────────────────────────────────────
+   The dispatcher's view of an incident. Deliberately narrower than the
+   investigation record: no IRF, no scene photographs. Colours match the
+   alert cards, the map markers and the investigation list, so one
+   incident looks like one incident wherever it appears. */
+
+.incidents-table {
+    width: 100%;
+    min-width: 940px;          /* below this the columns squash instead of scrolling */
+    border-collapse: collapse;
+    font-size: .85rem;
+}
+
+.incidents-table th {
+    text-align: left;
+    padding: 11px 14px;
+    background: #1b3d52;
+    color: #fff;
+    font-size: .74rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    white-space: nowrap;
+}
+
+.incidents-table td {
+    padding: 11px 14px;
+    border-bottom: 1px solid #eef2f5;
+    color: #334155;
+    vertical-align: top;
+}
+
+.incidents-table tr:last-child td { border-bottom: none; }
+.incidents-table tbody tr:hover td { background: #f8fbfc; }
+
+/* An open incident older than the board's live window. Amber rather than
+   red: nothing has failed, but it has been waiting and somebody should
+   look at it. */
+.incidents-table tr.is-ageing td { background: #fffdf5; }
+.incidents-table tr.is-ageing:hover td { background: #fffaeb; }
+
+.ageing-flag {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #fef3c7;
+    color: #92400e;
+    font-size: .66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+}
+
+.cell-sub {
+    font-size: .74rem;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.cell-sub a { color: #1b3d52; font-weight: 600; text-decoration: none; }
+.cell-sub a:hover { text-decoration: underline; }
+
+/* ── Chips ───────────────────────────────────────────────────────── */
+
+.sev-chip,
+.status-chip {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+    white-space: nowrap;
+}
+
+.sev-critical { background: #fef2f2; color: #b91c1c; }
+.sev-high     { background: #fff7ed; color: #c2410c; }
+.sev-medium   { background: #fefce8; color: #a16207; }
+.sev-low      { background: #f0fdf4; color: #15803d; }
+
+.status-pending     { background: #fef2f2; color: #b91c1c; }
+.status-dispatched  { background: #ecfdf5; color: #2a7c5b; }
+.status-arrived     { background: #ede9fe; color: #5b21b6; }
+.status-resolved    { background: #f0fdf4; color: #15803d; }
+.status-false-alarm { background: #f1f5f9; color: #475569; }
+
+.view-link {
+    color: #1b3d52;
+    font-weight: 600;
+    font-size: .8rem;
+    text-decoration: none;
+}
+.view-link:hover { text-decoration: underline; }
+
+/* ── Detail page ─────────────────────────────────────────────────── */
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+}
+
+.detail-item {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 9px;
+    padding: 12px 14px;
+}
+
+.detail-label {
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #64748b;
+    margin-bottom: 3px;
+}
+
+.detail-value {
+    font-size: .92rem;
+    color: #1e293b;
+    font-weight: 600;
+    word-break: break-word;
+}
+
+.detail-value a { color: #1b3d52; text-decoration: none; }
+.detail-value a:hover { text-decoration: underline; }
+
+/* Timeline — only stages that actually happened are rendered, so a gap
+   in the list means the incident never reached that stage. */
+.toc-timeline { list-style: none; margin: 0; padding: 0; }
+
+.toc-timeline li {
+    display: flex;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px dashed #e8eef2;
+    font-size: .86rem;
+}
+
+.toc-timeline li:last-child { border-bottom: none; }
+
+.toc-timeline time {
+    flex-shrink: 0;
+    width: 130px;
+    color: #64748b;
+    font-variant-numeric: tabular-nums;
+}
+
+.field-note {
+    background: #fdfdff;
+    border: 1px solid #e5e7eb;
+    border-left: 3px solid #5b21b6;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-top: 10px;
+}
+
+.field-note-narrative {
+    white-space: pre-wrap;
+    line-height: 1.55;
+    font-size: .9rem;
+    color: #1f2937;
+    margin-top: 8px;
+}
+
+/* ── History ──────────────────────────────────────────────────────
+   Reads the append-only incident_events log rather than four mutable
+   timestamp columns, so it can show the same event twice (a call
+   reassigned to a second unit) and can name who acted. */
+.toc-timeline .event-dot {
+    flex-shrink: 0;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-top: 6px;
+}
+
+/* Entries inferred from timestamps after the fact. Muted deliberately:
+   they are evidence of a gap in the record, not of what someone did. */
+.toc-timeline li.is-reconstructed { color: #64748b; }
+
+.reconstructed-flag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: .64rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    vertical-align: middle;
+}
+
+/* ── Desk activity feed ───────────────────────────────────────────
+   The same events as the per-incident history, read across every
+   incident instead of down one. Grouped by day because "what happened
+   on Tuesday" is the question a supervisor actually arrives with. */
+.activity-day {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 8px 16px;
+    font-size: .78rem;
+    font-weight: 700;
+    color: #334155;
+    letter-spacing: .02em;
+}
+
+.activity-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: .86rem;
+    color: #1e293b;
+}
+
+.activity-row:last-child { border-bottom: none; }
+.activity-row:hover { background: #f8fbfc; }
+
+.activity-row time {
+    flex-shrink: 0;
+    width: 46px;
+    color: #64748b;
+    font-variant-numeric: tabular-nums;
+    padding-top: 1px;
+}
+
+.activity-row .event-dot { margin-top: 6px; }
+
+.activity-body { min-width: 0; }
+
+/* Reconstructed entries are muted here for the same reason as in the
+   per-incident history: they evidence a gap in the record rather than
+   something somebody did. */
+.activity-row.is-reconstructed { color: #64748b; }
+
+/* ══ Shared page furniture ═══════════════════════════════════════
+   Both of these pages were a heading, a paragraph and a wall of rows.
+   The pieces below give them the same skeleton the rest of the TOC
+   uses — a header that carries the page's own numbers, filters that
+   look like a control, and an empty state that says what to do next
+   rather than leaving a blank table. */
+
+.page-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+.page-head h5 {
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+}
+
+.page-lede {
+    font-size: .84rem;
+    color: #64748b;
+    max-width: 680px;
+    margin: 4px 0 18px;
+    line-height: 1.5;
+}
+
+/* ── Triage strip ─────────────────────────────────────────────────
+   Every tile is a link to its own filtered view. An operator opening a
+   57-item backlog should not have to read the table to work out where
+   to start. */
+.triage-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.triage-tile {
+    display: block;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 11px 14px;
+    text-decoration: none;
+    transition: border-color .14s, box-shadow .14s, transform .14s;
+}
+
+.triage-tile:hover {
+    box-shadow: 0 3px 12px rgba(15, 23, 42, .09);
+    transform: translateY(-1px);
+}
+
+/* The filter currently in force, so the strip doubles as a read-out of
+   what the table below is actually showing. */
+.triage-tile.is-active {
+    background: #f8fbfc;
+    box-shadow: inset 0 0 0 1px #1b3d52;
+}
+
+.triage-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #111827;
+    line-height: 1;
+}
+
+.triage-label {
+    font-size: .73rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.triage-tile--pending    { border-left-color: #b91c1c; }
+.triage-tile--dispatched { border-left-color: #2a7c5b; }
+.triage-tile--arrived    { border-left-color: #5b21b6; }
+.triage-tile--critical   { border-left-color: #b91c1c; }
+.triage-tile--ageing     { border-left-color: #a16207; }
+
+.triage-tile--critical .triage-value { color: #b91c1c; }
+.triage-tile--ageing   .triage-value { color: #a16207; }
+
+/* ── Filter bar ──────────────────────────────────────────────────── */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+}
+
+.filter-field { display: flex; flex-direction: column; }
+
+.filter-field label {
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #64748b;
+    margin-bottom: 4px;
+}
+
+.filter-field .form-control,
+.filter-field .form-select {
+    border-color: #cbd5e1;
+    font-size: .84rem;
+}
+
+.filter-actions { display: flex; gap: 8px; align-items: center; }
+
+.btn-filter {
+    background: #1b3d52;
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font-size: .82rem;
+    font-weight: 600;
+    padding: 7px 16px;
+}
+.btn-filter:hover { background: #14303f; color: #fff; }
+
+.btn-filter-clear {
+    color: #64748b;
+    font-size: .82rem;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 7px 10px;
+}
+.btn-filter-clear:hover { color: #1e293b; text-decoration: underline; }
+
+/* ── Empty state ─────────────────────────────────────────────────── */
+.empty-state {
+    text-align: center;
+    padding: 44px 20px;
+    color: #64748b;
+}
+
+.empty-state-icon {
+    font-size: 1.8rem;
+    opacity: .35;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.empty-state-title {
+    font-size: .95rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 3px;
+}
+
+.empty-state-hint { font-size: .82rem; }
+
+/* ── Table row as a target ───────────────────────────────────────── */
+.incidents-table tbody tr { position: relative; }
+
+/* The whole row opens the incident. The visible "View" link stays as
+   the affordance; this just makes the target the size of the row
+   instead of eleven characters of text at the far right. */
+.row-link::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+}
+
+/* ══ Desk activity ═══════════════════════════════════════════════ */
+
+/* Metric tiles. Distinct from the triage strip because these are read,
+   not clicked — no hover lift, no link affordance. */
+.metric-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.metric-tile {
+    background: #dce8f0;
+    border: 1.5px solid #b8cdd9;
+    border-radius: 12px;
+    padding: 14px 16px;
+}
+
+.metric-title {
+    font-size: .75rem;
+    font-weight: 700;
+    color: #1b3d52;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.metric-value {
+    font-size: 1.85rem;
+    font-weight: 900;
+    color: #111827;
+    line-height: 1.1;
+    margin-top: 4px;
+}
+
+.metric-note {
+    font-size: .73rem;
+    color: #4b5563;
+    margin-top: 2px;
+}
+
+/* A metric with nothing behind it says so, rather than showing an
+   em-dash that reads like a rendering fault. */
+.metric-tile.is-empty { background: #f1f5f9; border-color: #e2e8f0; }
+.metric-tile.is-empty .metric-value { color: #94a3b8; font-size: 1.15rem; }
+
+/* ── Feed ─────────────────────────────────────────────────────────
+   The event colour moves to a left edge, and each entry carries an
+   icon for its type. A 9px dot was the only thing distinguishing a
+   dispatch from a cancellation. */
+.activity-day {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    background: #eef2f5;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 7px 16px;
+    font-size: .76rem;
+    font-weight: 700;
+    color: #334155;
+    letter-spacing: .02em;
+}
+
+.activity-day .day-count {
+    font-weight: 400;
+    color: #94a3b8;
+    font-size: .73rem;
+}
+
+.activity-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 11px 16px 11px 13px;
+    border-bottom: 1px solid #f1f5f9;
+    border-left: 3px solid transparent;
+    font-size: .86rem;
+    color: #1e293b;
+}
+
+.activity-row:last-child { border-bottom: none; }
+.activity-row:hover { background: #f8fbfc; }
+
+.activity-row time {
+    flex-shrink: 0;
+    width: 44px;
+    color: #64748b;
+    font-variant-numeric: tabular-nums;
+    font-size: .82rem;
+    padding-top: 2px;
+}
+
+.activity-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .76rem;
+    color: #fff;
+    font-weight: 700;
+}
+
+.activity-body { min-width: 0; flex: 1; }
+
+.activity-what { line-height: 1.35; }
+
+/* Reconstructed entries are muted for the same reason as in the
+   per-incident history: they evidence a gap in the record rather than
+   something somebody did. */
+.activity-row.is-reconstructed { color: #64748b; }
+.activity-row.is-reconstructed .activity-icon { opacity: .5; }

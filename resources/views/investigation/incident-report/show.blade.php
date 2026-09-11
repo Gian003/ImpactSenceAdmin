@@ -52,6 +52,7 @@
     $statusColors = [
         'pending'     => ['bg' => '#fef3c7', 'text' => '#92400e'],
         'dispatched'  => ['bg' => '#dbeafe', 'text' => '#1e40af'],
+        'arrived'     => ['bg' => '#ede9fe', 'text' => '#5b21b6'],
         'resolved'    => ['bg' => '#d1fae5', 'text' => '#065f46'],
         'false_alarm' => ['bg' => '#f1f5f9', 'text' => '#475569'],
     ];
@@ -283,6 +284,122 @@
     </div>
 
 </div>
+
+{{-- RESPONDER FIELD REPORTS — what the unit at the scene actually said.
+     Deliberately its own section rather than folded into the details above:
+     everything above is what the system recorded, this is a person's account,
+     and the investigator signing the IRF has to be able to tell them apart.
+     Read-only here — corrections are filed from the patrol app as a new
+     supplemental report, so the sequence of what was said survives. --}}
+@isset($fieldReports)
+<div class="report-bottom-grid" style="margin-top:16px;">
+    <div class="report-card" style="grid-column: 1 / -1;">
+        <div class="timeline-title d-flex align-items-center justify-content-between">
+            <span>Responder Field Reports</span>
+            @if($fieldReports->isNotEmpty())
+            <span class="badge rounded-pill" style="background:#5b21b6; font-size:.82rem;">
+                {{ $fieldReports->count() }}
+            </span>
+            @endif
+        </div>
+
+        @if($fieldReports->isEmpty())
+        <div class="timeline-log" style="color:#6b7280; font-size:.95rem;">
+            No responding unit has filed a field report for this incident yet.
+            Reports are submitted from the patrol app when the responder closes
+            the incident.
+        </div>
+        @else
+        @foreach($fieldReports as $report)
+        @php
+            $metres = $report->metresFromScene();
+            $conditions = collect([
+                'Vehicles involved' => $report->vehicles_involved,
+                'Injured'           => $report->injured_count,
+                'Road'              => $report->road_condition,
+                'Weather'           => $report->weather_condition,
+            ])->filter(fn ($v) => $v !== null && $v !== '');
+        @endphp
+        <div class="field-report">
+
+            <div class="field-report-head">
+                <div>
+                    <div class="field-report-author">
+                        {{ $report->patrolUnit?->full_name ?? 'Unattributed unit' }}
+                        @if($report->patrolUnit?->badge_number)
+                        <span class="field-report-badge">{{ $report->patrolUnit->badge_number }}</span>
+                        @endif
+                    </div>
+                    <div class="field-report-meta">
+                        Filed {{ $report->submitted_at?->format('d M Y, h:i A') ?? '—' }}
+                        @if($metres !== null)
+                        &middot;
+                        {{-- Surfaced, not enforced. GPS fails indoors and a
+                             responder may write up after leaving the scene —
+                             but whoever relies on this account should be able
+                             to see where it was written. --}}
+                        <span @class(['field-report-far' => $metres > 500])>
+                            {{ $metres < 1000 ? round($metres) . ' m' : round($metres / 1000, 1) . ' km' }}
+                            from the recorded scene
+                        </span>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            @if($conditions->isNotEmpty())
+            <div class="field-report-conditions">
+                @foreach($conditions as $label => $value)
+                <span class="field-chip"><b>{{ $label }}:</b> {{ $value }}</span>
+                @endforeach
+            </div>
+            @endif
+
+            @if(trim((string) $report->narrative) !== '')
+            <div class="field-report-narrative">{{ $report->narrative }}</div>
+            @endif
+
+            @if($report->photos->isNotEmpty())
+            <div class="field-report-photos">
+                @foreach($report->photos as $photo)
+                @php $intact = $photo->integrityIntact(); @endphp
+                <a class="field-photo" target="_blank" rel="noopener"
+                   href="{{ route('incident-field-photos.show', $photo) }}"
+                   title="{{ $photo->original_filename }} — {{ $photo->humanSize() }}">
+                    @if($photo->exists())
+                    <img src="{{ route('incident-field-photos.show', $photo) }}"
+                         alt="Scene photograph filed by {{ $report->patrolUnit?->full_name ?? 'the responding unit' }}"
+                         loading="lazy">
+                    @else
+                    <div class="field-photo-missing">File missing</div>
+                    @endif
+                    {{-- The digest is recorded at upload so someone can ask
+                         "is this still the photograph that was taken?" — so
+                         something has to actually ask. --}}
+                    <span @class(['field-photo-seal', 'is-broken' => $intact === false])>
+                        @if($intact === true)
+                            ✓ verified
+                        @elseif($intact === false)
+                            ⚠ altered
+                        @else
+                            no digest
+                        @endif
+                    </span>
+                </a>
+                @endforeach
+            </div>
+            <div class="field-report-meta" style="margin-top:6px;">
+                {{ $report->photos->count() }} {{ Str::plural('photograph', $report->photos->count()) }}
+                &middot; stored privately, viewable only to signed-in TOC and investigation staff
+            </div>
+            @endif
+
+        </div>
+        @endforeach
+        @endif
+    </div>
+</div>
+@endisset
 
 {{-- GENERATED INCIDENT RECORDS — populated when someone presses SAVE or
      SAVE & PRINT on the IRF for this incident (see

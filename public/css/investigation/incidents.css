@@ -126,11 +126,14 @@
 .sev-low      { background: #d1fae5; color: #065f46; }
 
 /* ── Incident status ───────────────────────────────────────────
-   The four states the database actually stores. The page used to fold
+   The five states the database actually stores. The page used to fold
    these into "Active" and "Resolved", which filed false alarms in with
    genuinely resolved cases — the one distinction an investigator most
    needs to keep. .status-active / .status-resolved are left in place
    above because the Saved Records page still uses them. */
 .status-pending     { background: #fef3c7; color: #92400e; border: none; }
 .status-dispatched  { background: #dbeafe; color: #1e40af; border: none; }
+/* On scene — deliberately not another shade of blue or green, so "unit is
+   still working the scene" never gets skimmed as "en route" or "closed". */
+.status-arrived     { background: #ede9fe; color: #5b21b6; border: none; }
 .status-false-alarm { background: #f1f5f9; color: #64748b; border: none; }

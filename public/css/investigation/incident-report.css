@@ -342,3 +342,145 @@
 
     @page { margin: 15mm; }
 }
+
+/* ── Responder field reports ───────────────────────────────────────
+   The unit's own account of the scene. Violet throughout, matching the
+   "arrived / on scene" status colour used on the dispatch board and the
+   incidents list, so responder-sourced information reads as one thing
+   wherever it appears. */
+.field-report {
+    border: 1px solid #e5e7eb;
+    border-left: 3px solid #5b21b6;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-top: 12px;
+    background: #fdfdff;
+}
+
+.field-report-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.field-report-author {
+    font-weight: 700;
+    color: #1b3d52;
+    font-size: .96rem;
+}
+
+.field-report-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #ede9fe;
+    color: #5b21b6;
+    font-size: .74rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+}
+
+.field-report-meta {
+    color: #6b7280;
+    font-size: .84rem;
+    margin-top: 2px;
+}
+
+/* A report filed a long way from the recorded scene isn't necessarily
+   wrong, so this warns rather than accuses. */
+.field-report-far {
+    color: #b45309;
+    font-weight: 600;
+}
+
+.field-report-conditions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.field-chip {
+    background: #f1f5f9;
+    color: #334155;
+    border-radius: 6px;
+    padding: 3px 9px;
+    font-size: .84rem;
+}
+
+.field-chip b {
+    color: #1b3d52;
+    font-weight: 600;
+}
+
+/* Preserves the responder's own line breaks — how someone chose to break
+   up their account is part of the account. */
+.field-report-narrative {
+    margin-top: 10px;
+    white-space: pre-wrap;
+    line-height: 1.55;
+    color: #1f2937;
+    font-size: .95rem;
+}
+
+.field-report-photos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.field-photo {
+    position: relative;
+    display: block;
+    width: 132px;
+    height: 132px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    background: #f8fafc;
+    text-decoration: none;
+}
+
+.field-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.field-photo-missing {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #9ca3af;
+    font-size: .82rem;
+}
+
+.field-photo-seal {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 3px 6px;
+    background: rgba(15, 23, 42, .72);
+    color: #d1fae5;
+    font-size: .72rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.field-photo-seal.is-broken {
+    background: rgba(153, 27, 27, .88);
+    color: #fee2e2;
+}
+
+@media print {
+    /* The seal is a screen affordance; on paper the photograph itself is
+       what goes in the folder. */
+    .field-photo-seal { display: none; }
+    .field-report { break-inside: avoid; }
+}

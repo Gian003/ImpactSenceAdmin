@@ -7,6 +7,8 @@ use App\Events\IncidentStatusUpdated;
 use App\Events\PatrolDispatched;
 use App\Events\PatrolLocationUpdated;
 use App\Http\Controllers\Controller;
+use App\Jobs\NotifyEmergencyContacts;
+use App\Jobs\SendPushNotification;
 use App\Models\Incident;
 use App\Services\EmergencyNotificationService;
 use App\Services\FcmService;
@@ -40,6 +42,20 @@ class IncidentController extends Controller
 
         $incident->load(['rider', 'device']);
 
+        \App\Models\IncidentEvent::record(
+            $incident,
+            \App\Models\IncidentEvent::REPORTED,
+            [
+                'status_to' => 'pending',
+                'payload'   => array_filter([
+                    'source'   => 'mobile app',
+                    'severity' => $incident->severity,
+                    'address'  => $incident->address,
+                ]),
+            ],
+            $rider,
+        );
+
         // Broadcast to TOC dashboard — non-fatal if Pusher is not configured
         try {
             broadcast(new IncidentReported($incident))->toOthers();
@@ -47,17 +63,25 @@ class IncidentController extends Controller
             Log::warning('Pusher broadcast failed (IncidentReported)', ['error' => $e->getMessage()]);
         }
 
-        // FCM push to rider — non-fatal if Firebase is not configured
-        $fcm->notifyRider(
-            $rider,
-            'Crash Reported',
-            'Your incident has been reported. TOC has been alerted.',
-            ['incident_id' => (string) $incident->id, 'type' => 'crash_confirmed']
-        );
+        // Queued, and the dispatch guarded — see DeviceController for both.
+        try {
+            if ($rider->fcm_token) {
+                SendPushNotification::dispatch(
+                    $rider->fcm_token,
+                    'Crash Reported',
+                    'Your incident has been reported. TOC has been alerted.',
+                    ['incident_id' => (string) $incident->id, 'type' => 'crash_confirmed'],
+                );
+            }
 
-        // SMS (Semaphore) + voice call (Twilio TTS) to the rider's emergency
-        // contact — non-fatal, see EmergencyNotificationService.
-        $emergencyNotifier->notifyEmergencyContact($incident);
+            // SMS (Semaphore) + voice call (Twilio TTS) to the rider's
+            // emergency contact — see EmergencyNotificationService.
+            NotifyEmergencyContacts::dispatch($incident);
+        } catch (\Throwable $e) {
+            Log::error('Queueing crash notifications failed', [
+                'incident' => $incident->id, 'error' => $e->getMessage(),
+            ]);
+        }
 
         return $this->apiResponse(true, 'Incident reported', $incident, 201);
     }
@@ -89,20 +113,30 @@ class IncidentController extends Controller
         return $this->apiResponse(true, 'Incidents retrieved', $incidents);
     }
 
-    // Patrol: update incident status (dispatched / resolved / false_alarm)
+    // Patrol: update incident status (dispatched / arrived / resolved / false_alarm)
     public function updateStatus(Request $request, Incident $incident, FcmService $fcm): JsonResponse
     {
         $data = $request->validate([
-            'status' => ['required', Rule::in(['dispatched', 'resolved', 'false_alarm'])],
+            'status' => ['required', Rule::in(['dispatched', 'arrived', 'resolved', 'false_alarm'])],
             'notes'  => ['nullable', 'string'],
         ]);
 
         $patrol  = $request->user();
         $updates = ['status' => $data['status']];
 
-        if ($data['status'] === 'dispatched' && $incident->patrol_unit_id === null) {
+        // Claiming the incident. "arrived" can legitimately be the first
+        // status a unit sends — a patroller already at the scene has no reason
+        // to tap "I'm on my way" first — so it claims the incident too, and
+        // backfills dispatched_at rather than leaving a gap in the timeline.
+        if (in_array($data['status'], ['dispatched', 'arrived'], true) && $incident->patrol_unit_id === null) {
             $updates['patrol_unit_id'] = $patrol->id;
             $updates['dispatched_at']  = now();
+        }
+
+        // Arrival is a milestone, not an outcome: stamp when the unit reached
+        // the scene, but leave the incident open.
+        if ($data['status'] === 'arrived') {
+            $updates['arrived_at'] = now();
         }
 
         if ($data['status'] === 'resolved') {
@@ -113,14 +147,41 @@ class IncidentController extends Controller
             $updates['notes'] = $data['notes'];
         }
 
+        $statusFrom = $incident->status;
+
         $incident->update($updates);
         $incident->load(['rider', 'patrolUnit']);
+
+        // The patrol unit is passed explicitly: it acts through a token, not
+        // a session, so the actor cannot be resolved from the guards.
+        \App\Models\IncidentEvent::record(
+            $incident,
+            match ($data['status']) {
+                'dispatched'  => \App\Models\IncidentEvent::DISPATCHED,
+                'arrived'     => \App\Models\IncidentEvent::ARRIVED,
+                'resolved'    => \App\Models\IncidentEvent::RESOLVED,
+                'false_alarm' => \App\Models\IncidentEvent::CANCELLED,
+                default       => $data['status'],
+            },
+            [
+                'status_from' => $statusFrom,
+                'status_to'   => $data['status'],
+                'payload'     => array_filter([
+                    'patrol_unit' => $patrol?->full_name,
+                    'badge'       => $patrol?->badge_number,
+                    'notes'       => $data['notes'] ?? null,
+                ]),
+            ],
+            $patrol,
+        );
 
         // Keep the patrol unit's own status in sync with the incident they're
         // responding to — this previously never changed after being set to
         // "off_duty" at registration approval, so Stand By / In Action (and
         // the TOC map marker color) never reflected reality.
-        if ($data['status'] === 'dispatched') {
+        // A unit on scene is still responding, so it stays "dispatched" here —
+        // only closing the incident puts them back off duty.
+        if (in_array($data['status'], ['dispatched', 'arrived'], true)) {
             $patrol->update(['status' => 'dispatched']);
         } elseif (in_array($data['status'], ['resolved', 'false_alarm'], true)) {
             $patrol->update(['status' => 'off_duty']);
@@ -146,7 +207,17 @@ class IncidentController extends Controller
                     $incident->patrolUnit,
                     'Dispatch Alert',
                     "Respond to {$incident->type} at {$incident->address}",
-                    ['incident_id' => (string) $incident->id, 'type' => 'dispatch']
+                    [
+                        'incident_id' => (string) $incident->id,
+                        'type'        => 'dispatch',
+                        // FCM data values must be strings. The phone colours
+                        // the alert by severity and names the location, so
+                        // both have to travel with the push — a dispatch that
+                        // arrives while the app is foregrounded has no Pusher
+                        // payload to fall back on.
+                        'severity'    => (string) $incident->severity,
+                        'address'     => (string) $incident->address,
+                    ]
                 );
             }
         }

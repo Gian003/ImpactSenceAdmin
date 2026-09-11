@@ -4,6 +4,26 @@
 
 @section('content')
 
+{{-- Crash notifications are queued. If nothing is draining that queue they are
+     not sent at all — no error, no log entry, just silence on the one path
+     where silence is worst. Rendered only when something is actually wrong, so
+     a healthy system shows the operator nothing. The admin dashboard carries
+     the full picture. --}}
+@php $queueHealth = \App\Support\QueueHealth::check(); @endphp
+@if (in_array($queueHealth->status, ['stalled', 'lagging', 'failing'], true))
+    <div class="alert d-flex align-items-start gap-2 mb-4"
+         style="background:{{ $queueHealth->status === 'stalled' ? '#fef2f2' : '#fffbeb' }};
+                border:1px solid {{ $queueHealth->status === 'stalled' ? '#fca5a5' : '#fcd34d' }};
+                color:{{ $queueHealth->status === 'stalled' ? '#991b1b' : '#78350f' }};
+                font-size:.85rem;">
+        <span style="font-size:1.05rem; line-height:1.2;">⚠</span>
+        <div>
+            <strong>Crash notifications may not be reaching anyone.</strong>
+            {{ $queueHealth->message }}
+        </div>
+    </div>
+@endif
+
 {{-- STAT CARDS --}}
 <div class="row g-3 mb-4">
 

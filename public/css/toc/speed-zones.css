@@ -1,0 +1,154 @@
+/* ── Speed zone builder ────────────────────────────────────────────
+   Defining a zone is four separate decisions — name it, trace the road,
+   set the numbers, save — and the form previously presented them as one
+   undifferentiated wall. The stepper is not decoration: it tells an
+   operator which of the four they have actually finished, which matters
+   because the tracing step has no obvious "done" state of its own. */
+
+.zone-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.zone-step {
+    flex: 1 1 180px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 14px;
+    border-radius: 9px;
+    border: 1px solid #e8d5d9;
+    background: #fff;
+    transition: border-color .15s, background .15s;
+}
+
+/* The step the operator should be looking at. */
+.zone-step.is-active {
+    border-color: #7B1A2E;
+    background: #fdf5f6;
+    box-shadow: 0 1px 6px rgba(123, 26, 46, .10);
+}
+
+.zone-step.is-done {
+    border-color: #86efac;
+    background: #f0fdf4;
+}
+
+.zone-step-num {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .74rem;
+    font-weight: 700;
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.zone-step.is-active .zone-step-num { background: #7B1A2E; color: #fff; }
+.zone-step.is-done   .zone-step-num { background: #15803d; color: #fff; }
+
+.zone-step-label {
+    font-size: .82rem;
+    font-weight: 600;
+    color: #1e293b;
+    line-height: 1.25;
+}
+
+/* What this step is currently showing — "3 points, 420 m", "not traced
+   yet". Reads as the step's own status line rather than help text. */
+.zone-step-hint {
+    display: block;
+    font-size: .72rem;
+    font-weight: 400;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.zone-step.is-done .zone-step-hint { color: #15803d; }
+
+/* ── Tracer controls ─────────────────────────────────────────────── */
+
+.tracer-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 12px 0 8px;
+}
+
+.tracer-btn {
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #334155;
+    font-size: .78rem;
+    font-weight: 600;
+    border-radius: 7px;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: background .12s, border-color .12s, color .12s;
+}
+
+.tracer-btn:hover:not(:disabled) { background: #f1f5f9; }
+
+.tracer-btn:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+
+.tracer-btn--primary {
+    background: #1b3d52;
+    border-color: #1b3d52;
+    color: #fff;
+}
+.tracer-btn--primary:hover:not(:disabled) { background: #14303f; }
+
+/* While tracing, the primary button becomes the way out of tracing. */
+.tracer-btn--tracing {
+    background: #15803d;
+    border-color: #15803d;
+    color: #fff;
+}
+.tracer-btn--tracing:hover:not(:disabled) { background: #126c34; }
+
+.tracer-hint {
+    font-size: .75rem;
+    color: #64748b;
+    flex: 1 1 260px;
+}
+
+.tracer-hint kbd {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 0 5px;
+    font-size: .7rem;
+    color: #334155;
+}
+
+/* Advisory only — the server is what actually refuses an overlap. Amber
+   rather than red for exactly that reason: nothing has failed yet. */
+.tracer-warning {
+    display: none;
+    align-items: flex-start;
+    gap: 8px;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    color: #78350f;
+    font-size: .79rem;
+    border-radius: 8px;
+    padding: 9px 12px;
+    margin-bottom: 10px;
+}
+
+.tracer-warning.show { display: flex; }
+
+/* Crosshair while the map is in tracing mode, so the cursor says what
+   clicking will do. */
+#zone-picker-map.is-tracing { cursor: crosshair; }

@@ -11,6 +11,19 @@ class Incident extends Model
 {
     use HasFactory;
 
+    /**
+     * How far back the TOC alert panel counts an open incident as "live".
+     *
+     * Anything older is still open, still listed on the Incidents page, and
+     * still counted as backlog — it just stops being drawn as an active
+     * alert, because a month-old unclosed case and a call from ninety
+     * seconds ago are different problems and a dispatch board that mixes
+     * them cannot be trusted for either.
+     *
+     * Widen it for a demo against historical data; tighten it in service.
+     */
+    public const LIVE_WINDOW_HOURS = 12;
+
     protected $fillable = [
         'rider_id',
         'device_id',
@@ -28,6 +41,7 @@ class Incident extends Model
         'weather_condition',
         'twilio_call_sid',
         'dispatched_at',
+        'arrived_at',
         'resolved_at',
     ];
 
@@ -39,6 +53,7 @@ class Incident extends Model
             'vehicles_involved' => 'integer',
             'injured_count'     => 'integer',
             'dispatched_at'     => 'datetime',
+            'arrived_at'        => 'datetime',
             'resolved_at'       => 'datetime',
         ];
     }
@@ -115,6 +130,9 @@ class Incident extends Model
             'resolved'    => 'The incident was marked resolved'
                 . ($this->resolved_at ? ' at ' . $this->resolved_at->format('h:i A') : '') . '.',
             'false_alarm' => 'The alert was subsequently cancelled as a false alarm.',
+            'arrived'     => 'The responding unit was recorded as on scene'
+                . ($this->arrived_at ? ' at ' . $this->arrived_at->format('h:i A') : '')
+                . ', and the incident remained open at the time this record was generated.',
             'dispatched'  => 'The incident was still marked dispatched at the time this record was generated.',
             default       => 'The incident was still marked pending at the time this record was generated.',
         };
@@ -132,11 +150,42 @@ class Incident extends Model
             $lines[] = 'Recorded conditions: ' . implode('; ', $conditions) . '.';
         }
 
+        // The responder's own words go last and stay attributed. Everything
+        // above is what the system recorded; this is what a person at the
+        // scene said, and the investigator signing the form has to be able to
+        // tell the two apart.
+        foreach ($this->fieldReports as $report) {
+            if ($attributed = $report->attributedNarrative()) {
+                $lines[] = $attributed;
+            }
+        }
+
         return implode("\n\n", $lines);
     }
 
     public function incidentRecords(): HasMany
     {
         return $this->hasMany(IncidentRecord::class);
+    }
+
+    /** What happened to this incident, oldest first. Append-only. */
+    public function events(): HasMany
+    {
+        return $this->hasMany(IncidentEvent::class)->orderBy('occurred_at')->orderBy('id');
+    }
+
+    /**
+     * First-hand accounts from responding units, oldest first — the order
+     * they were filed is part of what they say.
+     */
+    public function fieldReports(): HasMany
+    {
+        return $this->hasMany(IncidentFieldReport::class)->orderBy('submitted_at');
+    }
+
+    /** The most recent responder account, if any unit has filed one. */
+    public function latestFieldReport(): ?IncidentFieldReport
+    {
+        return $this->fieldReports()->with(['patrolUnit', 'photos'])->get()->last();
     }
 }

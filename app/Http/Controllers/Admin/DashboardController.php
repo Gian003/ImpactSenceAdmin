@@ -26,6 +26,10 @@ class DashboardController extends Controller
             'inv_officers'     => InvestigationOfficer::count(),
         ];
 
+        // Whether anything is draining the queue. Crash notifications are
+        // queued, so a dead worker means they are never sent — silently.
+        $queue = \App\Support\QueueHealth::check();
+
         $recentIncidents = Incident::with('rider', 'patrolUnit')
             ->latest()->limit(8)->get();
 
@@ -38,7 +42,7 @@ class DashboardController extends Controller
             ->orderBy(DB::raw("DATE_FORMAT(created_at,'%Y-%m')"))
             ->get();
 
-        return view('admin.dashboard.index', compact('stats', 'recentIncidents', 'byMonth'));
+        return view('admin.dashboard.index', compact('stats', 'recentIncidents', 'byMonth', 'queue'));
     }
 
     // Returns a 7-element array (oldest → today) of daily counts for the given query.

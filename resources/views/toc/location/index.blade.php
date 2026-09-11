@@ -106,6 +106,11 @@
                     <div class="map-key-row"><span class="map-key-dot" style="background:#dc2626;"></span> Pending</div>
                     <div class="map-key-row"><span class="map-key-dot" style="background:#f59e0b;"></span> Dispatched
                     </div>
+                    {{-- Added alongside the 'arrived' status. Without it the key
+                         claimed every non-dispatched pin was Pending, including
+                         incidents with a unit already on the scene. --}}
+                    <div class="map-key-row"><span class="map-key-dot" style="background:#7c3aed;"></span> On scene
+                    </div>
                     <div class="map-key-row"><span class="map-key-dot map-key-dot--sm"
                             style="background:#dc2626;"></span><span class="map-key-dot map-key-dot--lg"
                             style="background:#dc2626;"></span> Size = severity</div>
@@ -118,6 +123,23 @@
                     <div class="map-key-row"><span class="map-key-arrow"></span> Arrow = direction of travel</div>
                     <div class="map-key-row"><span class="map-key-dot map-key-dot--faded"
                             style="background:#2563eb;"></span> Faded = no recent GPS update</div>
+
+                    {{-- Only rendered while the Live Traffic layer is actually on;
+                         toggleTraffic() adds .show. A key that explains a layer
+                         the operator has switched off is just clutter on top of
+                         the map. Colours are Google's, matching what the traffic
+                         layer draws — see the note in location.css. --}}
+                    <div class="map-key-traffic" id="mapKeyTraffic">
+                        <div class="map-key-group-label">Live traffic</div>
+                        <div class="map-key-row"><span class="map-key-line"
+                                style="background:#63d668;"></span> Clear</div>
+                        <div class="map-key-row"><span class="map-key-line"
+                                style="background:#ff974d;"></span> Slowing</div>
+                        <div class="map-key-row"><span class="map-key-line"
+                                style="background:#f23c32;"></span> Congested</div>
+                        <div class="map-key-row"><span class="map-key-line"
+                                style="background:#811f1f;"></span> Stop-and-go</div>
+                    </div>
                 </div>
             </div>
 
@@ -147,7 +169,7 @@
                     </div>
 
                     {{-- Scrollable body --}}
-                    <div style="max-height:260px; overflow-y:auto;">
+                    <div class="panel-scroll">
                         <table style="width:100%; border-collapse:collapse;">
                             <thead>
                                 <tr>
@@ -294,7 +316,7 @@
                     {{-- Scrollable body — capped the same way as Speed Reports, so
                          a full top-10 list of two-line rows (coordinates + geocoded
                          address) doesn't grow the panel past a comfortable height. --}}
-                    <div style="max-height:260px; overflow-y:auto;">
+                    <div class="panel-scroll">
                     <table style="width:100%; border-collapse:collapse;">
                         <thead>
                             <tr>
@@ -339,6 +361,7 @@
          upsertPatrolRow() in the script below as status changes arrive. --}}
             <div class="patrollers-panel" id="patrollersPanel">
                 <div class="panel-card">
+                    <div class="panel-scroll">
                     <table>
                         <thead>
                             <tr>
@@ -365,8 +388,10 @@
                             @endforelse
                         </tbody>
                     </table>
+                    </div>
                 </div>
                 <div class="panel-card">
+                    <div class="panel-scroll">
                     <table>
                         <thead>
                             <tr>
@@ -393,34 +418,81 @@
                             @endforelse
                         </tbody>
                     </table>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="alerts-panel">
             {{-- ACCIDENT ALERT CARDS (real DB incidents) --}}
+            {{-- A new emergency reaches a screen reader through nothing at all
+                 today: the panel has an audio beep and no accessible
+                 announcement. This is the only assertive region on the page,
+                 kept separate from the cards so the "3 minutes ago" ticker
+                 cannot spam it. --}}
+            <p id="alert-announcer" class="visually-hidden" role="status"
+               aria-live="assertive" aria-atomic="true"></p>
+
             <div id="no-incidents-banner" class="alert mb-3"
                 style="background:#f0f7fa; border:1.5px solid #b8cdd9; font-size:.88rem; {{ ($pendingIncidents ?? collect())->isEmpty() ? '' : 'display:none;' }}">
-                No active incidents at this time.
+                No incidents reported in the last {{ $liveWindowHours ?? 12 }} hours.
             </div>
+
+            {{-- Everything still open from before the window. Deliberately a
+                 count and a link rather than more cards: these need closing,
+                 not dispatching, and drawing them as live alerts is what made
+                 the board untrustworthy in the first place. --}}
+            @if (($backlogCount ?? 0) > 0)
+                <div class="alert mb-3 d-flex align-items-center justify-content-between gap-2"
+                     style="background:#fffbeb; border:1px solid #fcd34d; color:#78350f; font-size:.85rem;">
+                    <span>
+                        <strong>{{ $backlogCount }}</strong>
+                        older {{ Str::plural('incident', $backlogCount) }}
+                        still open from before the last {{ $liveWindowHours ?? 12 }} hours.
+                    </span>
+                    <a href="{{ route('toc.incidents.index') }}"
+                       style="color:#78350f; font-weight:600; white-space:nowrap;">Review them →</a>
+                </div>
+            @endif
             <div id="incident-cards-row" class="row g-3 mb-3"
                 style="{{ ($pendingIncidents ?? collect())->isEmpty() ? 'display:none;' : '' }}">
                 @foreach ($pendingIncidents ?? [] as $inc)
+                    @php
+                        // Every card used to be the same pink whether the
+                        // incident was a fatal collision or a low-severity
+                        // fall — 8 critical and 8 low looked identical on a
+                        // board whose whole job is triage. Same palette as the
+                        // map markers and the incidents list.
+                        $sev = [
+                            'critical' => ['#b91c1c', '#fef2f2'],
+                            'high'     => ['#c2410c', '#fff7ed'],
+                            'medium'   => ['#a16207', '#fefce8'],
+                            'low'      => ['#15803d', '#f0fdf4'],
+                        ][$inc->severity] ?? ['#64748b', '#f8fafc'];
+
+                        $statusChip = [
+                            'pending'    => ['#b91c1c', 'PENDING'],
+                            'dispatched' => ['#2a7c5b', 'DISPATCHED'],
+                            'arrived'    => ['#5b21b6', 'ON SCENE'],
+                        ][$inc->status] ?? ['#64748b', strtoupper($inc->status)];
+                    @endphp
                     <div class="col-md-6" data-incident-id="{{ $inc->id }}"
-                        data-reported-at="{{ $inc->created_at->toISOString() }}">
-                        <div class="p-3 position-relative rounded-3 border border-2"
-                            style="background:#fde8e8; border-color:#d97070 !important;">
+                        data-reported-at="{{ $inc->created_at->toISOString() }}"
+                        data-severity="{{ $inc->severity }}">
+                        <div class="p-3 position-relative rounded-3 alert-card"
+                            style="background:{{ $sev[1] }}; border-left:5px solid {{ $sev[0] }};">
                             <span
                                 class="position-absolute rounded-circle d-flex align-items-center justify-content-center fw-black text-white"
-                                style="top:12px; right:12px; width:28px; height:28px; background:#1a1a1a; font-size:1rem;">!</span>
+                                style="top:12px; right:12px; width:28px; height:28px; background:{{ $sev[0] }}; font-size:1rem;">!</span>
                             <h6 class="fw-bold mb-2">Accident Alert!
                                 <span class="badge ms-2"
-                                    style="font-size:.88rem; background:#{{ $inc->status === 'pending' ? 'b91c1c' : '2a7c5b' }};">
-                                    {{ strtoupper($inc->status) }}
+                                    style="font-size:.88rem; background:{{ $statusChip[0] }};">
+                                    {{ $statusChip[1] }}
                                 </span>
-                                @if ($inc->severity === 'critical')
-                                    <span class="badge ms-1" style="font-size:.88rem; background:#7B1A2E;">CRITICAL</span>
-                                @endif
+                                <span class="badge ms-1"
+                                      style="font-size:.88rem; background:{{ $sev[0] }};">
+                                    {{ strtoupper($inc->severity) }}
+                                </span>
                             </h6>
                             <div class="reported-line"
                                 style="font-size:.88rem; color:#64748b; margin-top:-6px; margin-bottom:8px;">
@@ -437,8 +509,20 @@
                                         </svg>
                                         {{ $inc->rider?->full_name ?? 'Unknown rider' }}
                                     </div>
-                                    <div class="ps-3 text-dark" style="font-size:.88rem;">
-                                        {{ $inc->rider?->phone_number ?? '—' }}</div>
+                                    <div class="ps-3" style="font-size:.88rem;">
+                                        @if ($inc->rider?->phone_number)
+                                            {{-- Click-to-call: the number was
+                                                 plain text, so an operator
+                                                 re-typed it by hand from a
+                                                 crash alert. --}}
+                                            <a href="tel:{{ preg_replace('/\D/', '', $inc->rider->phone_number) }}"
+                                               class="text-dark fw-semibold" style="text-decoration:none;">
+                                                {{ $inc->rider->phone_number }}
+                                            </a>
+                                        @else
+                                            <span class="text-dark">&mdash;</span>
+                                        @endif
+                                    </div>
                                 </div>
                                 <div class="col-6">
                                     <div class="d-flex align-items-center gap-1 mb-1 fw-bold" style="font-size:.85rem;">
@@ -478,7 +562,28 @@
                                 <div class="dispatch-note mt-2" style="font-size:.86rem; color:#2a7c5b;">
                                     ✓ Patrol dispatched: {{ $inc->patrolUnit?->full_name ?? '—' }}
                                 </div>
+                            @elseif($inc->status === 'arrived')
+                                {{-- The unit has reported itself on scene. Without this
+                                     branch an arrived incident showed no responder line at
+                                     all, which reads on the board as "nobody is going". --}}
+                                <div class="dispatch-note mt-2 fw-bold" style="font-size:.86rem; color:#5b21b6;">
+                                    ● On scene: {{ $inc->patrolUnit?->full_name ?? '—' }}
+                                    @if ($inc->arrived_at)
+                                        <span class="fw-normal" style="color:#64748b;">since
+                                            {{ $inc->arrived_at->format('h:i A') }}</span>
+                                    @endif
+                                </div>
                             @endif
+
+                            {{-- The TOC incident view, not the investigation
+                                 report: that page carries scene photographs and
+                                 IRF records, which a dispatcher has no need of
+                                 and which are not theirs to hold. --}}
+                            <a href="{{ route('toc.incidents.show', $inc) }}"
+                               class="d-inline-block mt-2"
+                               style="font-size:.8rem; color:#1b3d52; font-weight:600; text-decoration:none;">
+                                View incident →
+                            </a>
                         </div>
                     </div>
                 @endforeach
@@ -499,6 +604,10 @@
             patrollers: @json($patrollers ?? []),
             allIncidentCoords: @json($allIncidentCoords ?? []),
             dispatchUrlTemplate: @json(route('toc.incidents.dispatch', ['incident' => '__ID__'])),
+            // The TOC-side incident view. Pointedly not the investigation
+            // report page, which the operator cannot open and which holds
+            // evidentiary material they do not need to dispatch a unit.
+            incidentReportUrlTemplate: @json(route('toc.incidents.show', ['incident' => '__ID__'])),
         };
     </script>
     <script src="{{ asset('js/toc/location.js') }}?v={{ filemtime(public_path('js/toc/location.js')) }}"></script>

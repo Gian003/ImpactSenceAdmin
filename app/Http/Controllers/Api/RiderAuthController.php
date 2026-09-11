@@ -15,6 +15,14 @@ use Illuminate\Support\Facades\Mail;
 
 class RiderAuthController extends Controller
 {
+    /**
+     * Guesses a single OTP will tolerate before it is destroyed.
+     *
+     * Five is enough for a genuine mistyping and nowhere near enough to
+     * search six digits.
+     */
+    private const MAX_OTP_ATTEMPTS = 5;
+
     public function register(RegisterRequest $request): JsonResponse
     {
         $email = $request->validated()['email'];
@@ -115,18 +123,61 @@ class RiderAuthController extends Controller
             'code'  => ['required', 'string', 'size:6'],
         ]);
 
-        $key    = 'otp:' . $request->email;
-        $stored = Cache::get($key);
+        $key         = 'otp:' . $request->email;
+        $attemptsKey = 'otp_attempts:' . $request->email;
+        $stored      = Cache::get($key);
 
         if ($stored === null) {
             return $this->apiResponse(false, 'Code expired. Please request a new one.', null, 422);
         }
 
+        // A six-digit code with a ten-minute life and no attempt limit is a
+        // million guesses against a target that never locks. The route
+        // throttle caps how fast an address can try; this caps how many
+        // guesses a single code will ever tolerate, which is what makes the
+        // search space matter. Counted against the code, not the caller, so
+        // rotating IPs buys nothing.
+        $attempts = (int) Cache::get($attemptsKey, 0);
+
+        if ($attempts >= self::MAX_OTP_ATTEMPTS) {
+            Cache::forget($key);
+            Cache::forget($attemptsKey);
+
+            return $this->apiResponse(
+                false,
+                'Too many incorrect attempts. Please request a new code.',
+                null,
+                429
+            );
+        }
+
         if ($stored !== $request->code) {
-            return $this->apiResponse(false, 'Incorrect code. Please try again.', null, 422);
+            // Expires with the code itself, so a fresh code starts clean.
+            Cache::put($attemptsKey, $attempts + 1, now()->addMinutes(10));
+
+            $left = self::MAX_OTP_ATTEMPTS - ($attempts + 1);
+
+            // Destroyed here rather than on the next request, so the code is
+            // actually dead at the moment the response says it is. Leaving it
+            // cached until someone tries again made the message true only in
+            // the sense that the next attempt would be refused.
+            if ($left <= 0) {
+                Cache::forget($key);
+                Cache::forget($attemptsKey);
+            }
+
+            return $this->apiResponse(
+                false,
+                $left > 0
+                    ? "Incorrect code. {$left} " . ($left === 1 ? 'attempt' : 'attempts') . ' remaining.'
+                    : 'Too many incorrect attempts. Please request a new code.',
+                null,
+                422
+            );
         }
 
         Cache::forget($key);
+        Cache::forget($attemptsKey);
 
         // Store a short-lived flag so the registration endpoint can confirm
         // this email was actually verified before allowing account creation.

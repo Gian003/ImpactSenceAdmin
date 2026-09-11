@@ -46,12 +46,13 @@
         @endforeach
     </select>
 
-    {{-- The four states actually stored, rather than the old Active/Resolved
+    {{-- The five states actually stored, rather than the old Active/Resolved
          pair that filed false alarms in with genuinely resolved cases. --}}
     <select class="form-select" id="statusFilter" style="max-width:160px; border-color:#c8d8e4;">
         <option value="">All Status</option>
         <option value="pending">Pending</option>
         <option value="dispatched">Dispatched</option>
+        <option value="arrived">On Scene</option>
         <option value="resolved">Resolved</option>
         <option value="false_alarm">False Alarm</option>
     </select>
@@ -100,6 +101,7 @@
                     $statusClass = match($incident->status) {
                         'pending'     => 'status-pending',
                         'dispatched'  => 'status-dispatched',
+                        'arrived'     => 'status-arrived',
                         'resolved'    => 'status-resolved',
                         'false_alarm' => 'status-false-alarm',
                         default       => 'status-pending',

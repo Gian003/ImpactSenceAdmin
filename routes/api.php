@@ -4,7 +4,9 @@ use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\PatrolRegistrationController;
 use App\Http\Controllers\Api\EmergencyContactController;
 use App\Http\Controllers\Api\RiderDeviceController;
+use App\Http\Controllers\Api\SpeedSampleController;
 use App\Http\Controllers\Api\IncidentController;
+use App\Http\Controllers\Api\IncidentFieldReportController;
 use App\Http\Controllers\Api\PatrolAuthController;
 use App\Http\Controllers\Api\RiderAuthController;
 use Illuminate\Support\Facades\Broadcast;
@@ -25,27 +27,58 @@ Broadcast::routes([
 // ── IOT DEVICE ────────────────────────────────────────────────────────────────
 // No Sanctum token — authenticated by device_code only
 Route::prefix('device')->group(function () {
-    Route::post('incident', [DeviceController::class, 'reportIncident']);
-    Route::get('emergency-contact', [DeviceController::class, 'getEmergencyContact']);
+    // Deliberately generous. This is the crash path: a helmet that has just
+    // detected an impact, possibly retrying over a poor GSM link, must not be
+    // turned away by a rate limit. 30/minute stops a loop hammering the
+    // endpoint while leaving any plausible real crash — including retries —
+    // comfortably inside the cap.
+    Route::post('incident', [DeviceController::class, 'reportIncident'])
+        ->middleware('throttle:30,1');
+
+    // Returns a rider's emergency contact name and number for a given device
+    // code, so an uncapped version is a PII lookup anyone can grind against
+    // guessed codes. Tighter than the crash route because nothing legitimate
+    // calls it more than once in a while — the device caches the answer.
+    Route::get('emergency-contact', [DeviceController::class, 'getEmergencyContact'])
+        ->middleware('throttle:20,1');
 });
 
 // ── RIDER ─────────────────────────────────────────────────────────────────────
 Route::prefix('rider')->group(function () {
 
     // Public
-    Route::post('register', [RiderAuthController::class, 'register']);
-    Route::post('login',    [RiderAuthController::class, 'login']);
+    Route::post('register', [RiderAuthController::class, 'register'])
+        ->middleware('throttle:5,1');
+    // Same 5/minute the patrol login has carried all along. Without it
+    // this was an uncapped credential-stuffing surface.
+    Route::post('login',    [RiderAuthController::class, 'login'])
+        ->middleware('throttle:5,1');
 
     // OTP — send a 6-digit code to the given email, verify it before registration
-    Route::post('otp/send',   [RiderAuthController::class, 'otpSend']);
-    Route::post('otp/verify', [RiderAuthController::class, 'otpVerify']);
+    // Each send costs a real SMS, so this is the one endpoint on the app
+    // where an uncapped loop spends money as well as leaking signal.
+    Route::post('otp/send',   [RiderAuthController::class, 'otpSend'])
+        ->middleware('throttle:5,1');
+
+    // A six-digit code with a ten-minute life and no attempt counter is
+    // brute-forceable. The route limit caps the rate; the controller caps
+    // the attempts per code, which is the half that actually closes it.
+    Route::post('otp/verify', [RiderAuthController::class, 'otpVerify'])
+        ->middleware('throttle:10,1');
 
     // IoT device status push (device_code used instead of token)
-    Route::post('device/status', [RiderDeviceController::class, 'updateStatus']);
+    Route::post('device/status', [RiderDeviceController::class, 'updateStatus'])
+        ->middleware('throttle:60,1');
 
     // Authenticated
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout',    [RiderAuthController::class, 'logout']);
+
+        // Anonymous GPS speed telemetry, batched from the navigation screen.
+        // Authenticated so only real riders can write to it, but the rows
+        // themselves carry no identity — see SpeedSampleController.
+        Route::post('speed-samples', [SpeedSampleController::class, 'store'])
+            ->middleware('throttle:30,1');
         Route::get('profile',    [RiderAuthController::class, 'profile']);
         Route::patch('profile',          [RiderAuthController::class, 'updateProfile']);
         Route::post('change-password',   [RiderAuthController::class, 'changePassword']);
@@ -100,5 +133,12 @@ Route::prefix('patrol')->group(function () {
         // Incidents
         Route::get('incidents',                          [IncidentController::class, 'patrolIndex']);
         Route::patch('incidents/{incident}/status',      [IncidentController::class, 'updateStatus']);
+
+        // The responder's own account of the scene. Throttled separately and
+        // more tightly than the JSON endpoints: each request can carry up to
+        // ten 8MB frames, so this is the one patrol route where a stuck
+        // retry loop would actually hurt the host.
+        Route::post('incidents/{incident}/field-report', [IncidentFieldReportController::class, 'store'])
+            ->middleware('throttle:10,1');
     });
 });

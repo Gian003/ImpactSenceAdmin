@@ -7,6 +7,55 @@
 
 @section('content')
 
+{{-- ── NOTIFICATION DELIVERY ─────────────────────────────────────────────
+     Crash notifications — the push to the rider, the SMS to their emergency
+     contact, the Twilio call to the TOC hotline — are queued rather than sent
+     inside the request. That keeps the crash endpoint fast, but it moves the
+     failure mode: on a real queue with no worker running, those notifications
+     do not fail, they simply never happen. Nothing errors and nothing is
+     logged. This panel is the only place that would tell you. --}}
+@isset($queue)
+@php
+    $tone = [
+        'healthy'    => ['#f0fdf4', '#86efac', '#166534', '✓'],
+        'not_queued' => ['#f8fafc', '#e2e8f0', '#475569', 'ℹ'],
+        'lagging'    => ['#fffbeb', '#fcd34d', '#78350f', '⚠'],
+        'failing'    => ['#fffbeb', '#fcd34d', '#78350f', '⚠'],
+        'stalled'    => ['#fef2f2', '#fca5a5', '#991b1b', '✕'],
+        'unknown'    => ['#f8fafc', '#e2e8f0', '#475569', 'ℹ'],
+    ][$queue->status] ?? ['#f8fafc', '#e2e8f0', '#475569', 'ℹ'];
+@endphp
+
+<div class="card border-0 rounded-3 mb-4"
+     style="background:{{ $tone[0] }}; border:1.5px solid {{ $tone[1] }} !important;">
+    <div class="card-body p-3 d-flex align-items-start gap-3">
+        <span style="font-size:1.3rem; color:{{ $tone[2] }}; line-height:1;">{{ $tone[3] }}</span>
+        <div style="flex:1; min-width:0;">
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <strong style="color:{{ $tone[2] }}; font-size:.9rem;">Notification delivery</strong>
+                <span style="font-size:.7rem; font-weight:700; text-transform:uppercase;
+                             letter-spacing:.05em; color:{{ $tone[2] }};
+                             background:rgba(255,255,255,.6); border-radius:999px; padding:1px 9px;">
+                    {{ str_replace('_', ' ', $queue->status) }}
+                </span>
+                <span style="font-size:.74rem; color:{{ $tone[2] }}; opacity:.8;">
+                    connection: {{ $queue->connection }}
+                </span>
+            </div>
+            <div style="font-size:.83rem; color:{{ $tone[2] }}; margin-top:3px;">
+                {{ $queue->message }}
+            </div>
+            @if ($queue->queued)
+                <div style="font-size:.76rem; color:{{ $tone[2] }}; opacity:.85; margin-top:4px;">
+                    {{ $queue->pending }} waiting
+                    @if ($queue->failed > 0) &middot; {{ $queue->failed }} failed @endif
+                </div>
+            @endif
+        </div>
+    </div>
+</div>
+@endisset
+
 {{-- Stat row --}}
 <div class="row g-3 mb-4">
     @php
@@ -51,8 +100,9 @@
                style="font-size:.78rem; color:#7B1A2E; text-decoration:none; font-weight:500;">View All ↗</a>
         </div>
         <div class="card border-0 rounded-3 overflow-hidden" style="border:1px solid #e8d5d9 !important;">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0" style="font-size:.83rem;">
+            <div class="table-scroll">
+                <table class="table table-hover mb-0"
+                       style="font-size:.83rem; min-width:720px;">
                     <thead>
                         <tr style="background:#7B1A2E;">
                             <th style="padding:11px 14px; color:#fff; font-weight:700; font-size:.75rem; border:none;">#</th>

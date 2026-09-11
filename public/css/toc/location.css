@@ -109,6 +109,29 @@
     flex-shrink: 0;
 }
 
+/* Traffic renders as coloured lines along roads, not points, so the swatch
+   is a bar rather than a dot.
+
+   These four are Google's own traffic colours, not the ImpactSense palette.
+   The key has to match what the map actually draws, and that rendering
+   belongs to Google — recolouring the legend to something prettier would
+   just make it wrong. The hairline border is there because the green sits
+   at roughly 1.9:1 on this near-white card and would otherwise be easy to
+   miss; WCAG allows the colours themselves to stand, since matching the
+   rendered layer is essential to what the key conveys. */
+.map-key-line {
+    width: 16px;
+    height: 5px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0, 0, 0, .18);
+}
+
+/* The traffic group only means anything while the layer is switched on;
+   toggleTraffic() adds .show. */
+.map-key-traffic { display: none; }
+.map-key-traffic.show { display: block; }
+
 .map-key-arrow {
     width: 0;
     height: 0;
@@ -188,6 +211,41 @@
     overflow: hidden;
 }
 
+/* ── Panel scrolling ───────────────────────────────────────────
+   These panels are absolutely positioned overlays anchored to the bottom
+   of the map, so a table with no height cap grows *upward* — past the top
+   of the map and out of reach, with .panel-card's overflow:hidden quietly
+   clipping the rows rather than revealing them. The Speed and Prone panels
+   already capped their bodies inline; the two patroller tables did not, so
+   a full roster ran off the top of the screen.
+
+   260px matches what the other panels were already using. */
+.panel-scroll {
+    max-height: 260px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.panel-scroll::-webkit-scrollbar { width: 8px; }
+.panel-scroll::-webkit-scrollbar-track { background: transparent; }
+.panel-scroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+.panel-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* The header has to survive the scroll. "STAND BY" and "IN ACTION" are the
+   only thing telling the two patroller tables apart, and on the Speed panel
+   the column names are what make the numbers mean anything — scrolling them
+   away leaves an operator reading unlabelled figures during a callout.
+   Sticks to the .panel-scroll ancestor, which is the scrolling box. */
+.panel-scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
 .panel-card table { width: 100%; border-collapse: collapse; }
 
 .panel-card th {
@@ -214,3 +272,29 @@
 }
 
 .panel-card tr:last-child td { border-bottom: none; }
+
+/* ── Alert cards ───────────────────────────────────────────────────
+   The severity colour is carried on a left edge rather than the whole
+   fill: an operator scanning the panel needs to rank cards at a glance,
+   and eight critical incidents rendered in the same pink as eight low
+   ones gave them nothing to rank by. Colours match the map markers and
+   the investigation incidents list. */
+.alert-card {
+    border: 1px solid #e5e7eb;
+    transition: box-shadow .15s;
+}
+
+.alert-card:hover {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .10);
+}
+
+/* Screen-reader-only announcer. Bootstrap ships .visually-hidden, but the
+   panel must not depend on that class surviving a CSS change. */
+#alert-announcer {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}

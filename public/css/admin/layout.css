@@ -48,6 +48,10 @@ body {
 /* Main content */
 .main-content {
     flex: 1;
+    /* A flex item's automatic minimum size is its content, so without this
+       a wide table would stretch the whole page instead of scrolling inside
+       its own container. */
+    min-width: 0;
     background: var(--admin-bg);
     min-height: 100vh;
     overflow-x: hidden;
@@ -88,8 +92,46 @@ body {
 .stat-value { font-size: 1.6rem; font-weight: 700; color: #1e293b; line-height: 1; }
 .stat-label { font-size: .78rem; color: #64748b; margin-top: 2px; }
 
-/* Table */
-.admin-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+/* ── Table scrolling ───────────────────────────────────────────
+   The wrappers around these tables were already set to overflow-x:auto,
+   but nothing ever scrolled: a table at width:100% with no floor simply
+   shrinks to whatever it is given, so on a narrow window the columns
+   squashed and the cells wrapped into unreadable stacks instead of
+   overflowing. The min-width below is what makes the existing scroll
+   containers do anything — it lets the table refuse to shrink past a
+   legible width and hand the overflow to the wrapper. */
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;   /* momentum on iOS */
+
+    /* Scroll shadows. A table clipped at the card edge otherwise looks like
+       a table that simply ends, and nobody scrolls a thing they cannot tell
+       is scrollable. The two white panes travel with the content (local) and
+       cover the shadow beneath them at each end, so a shadow only shows on
+       the side that still has columns hidden — the hint disappears by itself
+       once you reach the edge. */
+    background:
+        linear-gradient(to right, #fff 30%, rgba(255, 255, 255, 0)) left center,
+        linear-gradient(to left,  #fff 30%, rgba(255, 255, 255, 0)) right center,
+        radial-gradient(farthest-side at 0 50%,    rgba(0, 0, 0, .13), transparent) left center,
+        radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, .13), transparent) right center;
+    background-repeat: no-repeat;
+    background-size: 34px 100%, 34px 100%, 12px 100%, 12px 100%;
+    background-attachment: local, local, scroll, scroll;
+}
+
+.admin-table {
+    width: 100%;
+    min-width: 860px;
+    border-collapse: collapse;
+    font-size: .875rem;
+}
+
+/* Names, emails and units are the columns that suffer most from wrapping;
+   holding them on one line is the point of scrolling in the first place. */
+.admin-table th,
+.admin-table td { white-space: nowrap; }
+
 .admin-table th {
     text-align: left;
     padding: 10px 14px;

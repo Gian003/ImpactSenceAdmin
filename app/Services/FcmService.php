@@ -24,18 +24,29 @@ class FcmService
             return false;
         }
 
-        $response = $this->client($accessToken)->post(
-            self::FCM_BASE . "/{$projectId}/messages:send",
-            [
-                'message' => [
-                    'token'        => $fcmToken,
-                    'notification' => ['title' => $title, 'body' => $body],
-                    'data'         => array_map('strval', $data),
-                    'android'      => ['priority' => 'high'],
-                    'apns'         => ['headers' => ['apns-priority' => '10']],
-                ],
-            ]
-        );
+        try {
+            $response = $this->client($accessToken)->post(
+                self::FCM_BASE . "/{$projectId}/messages:send",
+                [
+                    'message' => [
+                        'token'        => $fcmToken,
+                        'notification' => ['title' => $title, 'body' => $body],
+                        'data'         => array_map('strval', $data),
+                        'android'      => ['priority' => 'high'],
+                        'apns'         => ['headers' => ['apns-priority' => '10']],
+                    ],
+                ]
+            );
+        } catch (\Throwable $e) {
+            // A timeout or DNS failure used to escape this method and take the
+            // caller with it. On the crash-report endpoint that meant an
+            // incident was saved to the database and the device still received
+            // a 500 — and a device that retries files the same crash twice.
+            // Google being unreachable is not a reason to lose a crash report.
+            Log::error('FCM send threw', ['error' => $e->getMessage()]);
+
+            return false;
+        }
 
         if (! $response->successful()) {
             Log::error('FCM send failed', ['status' => $response->status(), 'body' => $response->body()]);
@@ -71,8 +82,15 @@ class FcmService
                 return null;
             }
 
+            // Resolve relative paths from the project root so this works
+            // regardless of the working directory (artisan serve, web server, etc.)
+            $resolvedPath = str_starts_with($serviceAccount, '/')
+                || str_contains($serviceAccount, ':') // Windows absolute path
+                ? $serviceAccount
+                : base_path($serviceAccount);
+
             $credentials = json_decode(
-                is_file($serviceAccount) ? file_get_contents($serviceAccount) : $serviceAccount,
+                is_file($resolvedPath) ? file_get_contents($resolvedPath) : $serviceAccount,
                 true
             );
 
@@ -91,10 +109,19 @@ class FcmService
 
             $jwt = $this->buildJwt($credentials['private_key'], $claim);
 
-            $response = Http::asForm()->post(self::TOKEN_URL, [
-                'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-                'assertion'  => $jwt,
-            ]);
+            try {
+                $response = Http::asForm()->timeout(8)->post(self::TOKEN_URL, [
+                    'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                    'assertion'  => $jwt,
+                ]);
+            } catch (\Throwable $e) {
+                // Bounded and swallowed: this call sits in the request path of
+                // the crash endpoint, so an unreachable Google must cost a few
+                // seconds and a log line, not the report.
+                Log::error('FCM token exchange threw', ['error' => $e->getMessage()]);
+
+                return null;
+            }
 
             return $response->successful() ? $response->json('access_token') : null;
         });
