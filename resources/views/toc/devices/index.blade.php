@@ -523,6 +523,308 @@
         </div>
     </div>
 
+
+    {{-- ── Demonstration ─────────────────────────────────────────────────────
+
+         A capstone defence cannot involve actually crashing a motorcycle, and
+         a demo that only describes the dispatch chain proves nothing. This
+         fires a crash through the same controller the physical helmet unit
+         posts to, so what the panel watches is the production path.
+
+         Deliberately last on the page, visually separated, and behind a
+         confirmation that spells out what it does — it writes a real incident,
+         and anything that writes a real incident should be hard to hit by
+         accident. --}}
+    <h6 class="fw-bold mb-2 mt-5"
+        style="color:#1e293b; font-size:.88rem; text-transform:uppercase; letter-spacing:.05em;">
+        Demonstration
+    </h6>
+
+    <div class="dm-chart-card mb-4" style="border:1.5px dashed #c2410c;">
+        <div class="card-body p-4">
+
+            <div class="d-flex align-items-start gap-2 mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none"
+                     stroke="#c2410c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     viewBox="0 0 24 24" style="flex-shrink:0; margin-top:2px;">
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <div>
+                    <div style="font-size:.88rem; font-weight:700; color:#9a3412;">
+                        Simulate a crash from a helmet device
+                    </div>
+                    <div style="font-size:.84rem; color:#7c2d12; line-height:1.5; margin-top:2px;">
+                        Files a <strong>real incident</strong> through the same endpoint the
+                        physical unit uses. It appears on the live board, sounds the alert and
+                        can be dispatched — exactly like a genuine call. Its address is prefixed
+                        <code>{{ \App\Models\Incident::SIMULATION_PREFIX }}</code> so nobody
+                        mistakes it for one, and it can be cleared again below.
+                    </div>
+                </div>
+            </div>
+
+            @if($simulatableDevices->isEmpty())
+                <div style="background:#fffbeb; border:1px solid #fcd34d; color:#78350f;
+                            border-radius:8px; padding:12px 14px; font-size:.85rem;">
+                    No device is paired to a rider yet. A device can only file an incident on
+                    behalf of the rider it is paired to — pair one above first.
+                </div>
+            @else
+            <form method="POST" action="{{ route('toc.devices.simulate') }}" id="simulateForm">
+                @csrf
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label style="font-size:.78rem; font-weight:600; color:#475569; display:block; margin-bottom:4px;">
+                            Reporting device
+                        </label>
+                        <select name="device_id" required
+                                style="width:100%; border:1px solid #e8d5d9; border-radius:7px; padding:8px 10px; font-size:.85rem;">
+                            @foreach($simulatableDevices as $d)
+                                <option value="{{ $d->id }}">
+                                    {{ $d->device_code }} — {{ $d->rider->full_name ?? 'paired rider' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label style="font-size:.78rem; font-weight:600; color:#475569; display:block; margin-bottom:4px;">
+                            Severity
+                        </label>
+                        <select name="severity" id="simSeverity" required
+                                style="width:100%; border:1px solid #e8d5d9; border-radius:7px; padding:8px 10px; font-size:.85rem;">
+                            <option value="critical">Critical — 4 alert cycles, pulsing ring</option>
+                            <option value="high" selected>High — 3 alert cycles</option>
+                            <option value="medium">Medium — 2 alert cycles</option>
+                            <option value="low">Low — 1 alert cycle</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label style="font-size:.78rem; font-weight:600; color:#475569; display:block; margin-bottom:4px;">
+                            Location
+                        </label>
+                        {{-- Presets are real Urdaneta roads, so the pin lands
+                             somewhere the panel recognises rather than in a
+                             field outside the city. --}}
+                        <select id="simPreset"
+                                style="width:100%; border:1px solid #e8d5d9; border-radius:7px; padding:8px 10px; font-size:.85rem;">
+                            <option value="15.9770|120.5700|Urdaneta Bypass Road">Urdaneta Bypass Road</option>
+                            <option value="15.9750|120.5650|Amadeo R. Perez Jr. Avenue, Poblacion">Amadeo R. Perez Jr. Ave, Poblacion</option>
+                            <option value="15.9800|120.5610|McArthur Highway, Nancayasan">McArthur Highway, Nancayasan</option>
+                            <option value="15.9870|120.5700|Brgy. San Vicente Road">Brgy. San Vicente Road</option>
+                            <option value="custom">Custom coordinates…</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label style="font-size:.78rem; font-weight:600; color:#475569; display:block; margin-bottom:4px;">
+                            Place name shown on the board
+                        </label>
+                        <input type="text" name="place" id="simPlace" required maxlength="120"
+                               value="Urdaneta Bypass Road"
+                               style="width:100%; border:1px solid #e8d5d9; border-radius:7px; padding:8px 10px; font-size:.85rem;">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label style="font-size:.78rem; font-weight:600; color:#475569; display:block; margin-bottom:4px;">
+                            Latitude
+                        </label>
+                        <input type="number" step="any" name="latitude" id="simLat" required value="15.9770"
+                               style="width:100%; border:1px solid #e8d5d9; border-radius:7px; padding:8px 10px; font-family:monospace; font-size:.85rem;">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label style="font-size:.78rem; font-weight:600; color:#475569; display:block; margin-bottom:4px;">
+                            Longitude
+                        </label>
+                        <input type="number" step="any" name="longitude" id="simLng" required value="120.5700"
+                               style="width:100%; border:1px solid #e8d5d9; border-radius:7px; padding:8px 10px; font-family:monospace; font-size:.85rem;">
+                    </div>
+
+                    <div class="col-12">
+                        {{-- One checkbox per leg, all off by default.
+
+                             Bundled into a single "notify" switch, rehearsing the
+                             Twilio call also meant spending Semaphore credits and
+                             texting a real family member — so in practice nobody
+                             rehearsed it, and the one leg most worth showing a
+                             panel went undemonstrated. --}}
+                        <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:12px 14px;">
+                            <div style="font-size:.8rem; font-weight:700; color:#9a3412; margin-bottom:8px;">
+                                Which alerts to actually send
+                            </div>
+
+                            <div class="form-check mb-2">
+                                <input class="form-check-input sim-channel" type="checkbox"
+                                       name="call_toc" value="1" id="simCallToc">
+                                <label class="form-check-label" for="simCallToc"
+                                       style="font-size:.84rem; color:#475569;">
+                                    <strong>Call the TOC hotline</strong>
+                                    <code style="font-size:.78rem;">{{ config('services.twilio.toc_number') ?: 'not configured' }}</code>
+                                    <span style="display:block; font-size:.78rem; color:#94a3b8;">
+                                        Twilio speaks the crash details aloud. Roughly $0.29 and ~25 seconds per call.
+                                        @unless(config('services.twilio.account_sid'))
+                                            <strong style="color:#b91c1c;">Twilio is not configured — this will do nothing.</strong>
+                                        @endunless
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div class="form-check mb-2">
+                                <input class="form-check-input sim-channel" type="checkbox"
+                                       name="send_sms" value="1" id="simSendSms">
+                                <label class="form-check-label" for="simSendSms"
+                                       style="font-size:.84rem; color:#475569;">
+                                    <strong>Text the rider's emergency contact</strong>
+                                    <span style="display:block; font-size:.78rem; color:#94a3b8;">
+                                        A real SMS to a real family member, and it spends Semaphore credits.
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div class="form-check">
+                                <input class="form-check-input sim-channel" type="checkbox"
+                                       name="push_rider" value="1" id="simPushRider">
+                                <label class="form-check-label" for="simPushRider"
+                                       style="font-size:.84rem; color:#475569;">
+                                    <strong>Push to the rider's phone</strong>
+                                    <span style="display:block; font-size:.78rem; color:#94a3b8;">
+                                        Free. Only arrives if that rider has the app installed and signed in.
+                                    </span>
+                                </label>
+                            </div>
+
+                            @php
+                                // Counted here so the drill can say up front whether
+                                // anyone will actually be alerted. Guarded: before the
+                                // on_duty migration runs, the column does not exist,
+                                // and this page must not break over a count.
+                                try {
+                                    $freeUnits = \App\Models\PatrolUnit::query()
+                                        ->where('on_duty', true)
+                                        ->where('status', '!=', 'dispatched')
+                                        ->where('last_seen_at', '>=', now()->subMinutes(\App\Models\PatrolUnit::ONLINE_WITHIN_MINUTES))
+                                        ->count();
+                                } catch (\Throwable $e) {
+                                    $freeUnits = null;
+                                }
+                            @endphp
+                            <div class="form-check mt-2">
+                                <input class="form-check-input sim-channel" type="checkbox"
+                                       name="alert_patrol" value="1" id="simAlertPatrol">
+                                <label class="form-check-label" for="simAlertPatrol"
+                                       style="font-size:.84rem; color:#475569;">
+                                    <strong>Alert the nearest on-duty patrol unit</strong>
+                                    <span style="display:block; font-size:.78rem; color:#94a3b8;">
+                                        Calls and pushes the closest free unit within
+                                        {{ rtrim(rtrim(number_format((float) config('services.patrol_alert.radius_km', 5), 1), '0'), '.') }} km
+                                        of the coordinates above. Each call is a real Twilio call.
+                                        @if ($freeUnits === null)
+                                            <strong style="color:#b91c1c;">Run <code>php artisan migrate</code> first — this will do nothing yet.</strong>
+                                        @elseif ($freeUnits === 0)
+                                            <strong style="color:#b91c1c;">No unit is on duty with the app open right now, so nobody will be alerted.</strong>
+                                        @else
+                                            <strong style="color:#15803d;">{{ $freeUnits }} {{ $freeUnits === 1 ? 'unit is' : 'units are' }} on duty and free right now.</strong>
+                                        @endif
+                                        @unless (config('services.patrol_alert.enabled'))
+                                            Real crashes do not do this yet — it is switched off until PNP approves it.
+                                        @endunless
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div style="font-size:.78rem; color:#9a3412; margin-top:10px;">
+                                All unticked = a board-only drill. The incident still appears and
+                                the alert still sounds; nothing leaves the building.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 align-items-center mt-3">
+                    <button type="button" onclick="openSimulateConfirm()"
+                            style="background:#c2410c; border:none; border-radius:7px; padding:9px 20px;
+                                   font-size:.85rem; font-weight:700; color:#fff; cursor:pointer;">
+                        Simulate crash
+                    </button>
+
+                    @if(($simulationCount ?? 0) > 0)
+                        <span style="font-size:.82rem; color:#64748b;">
+                            {{ $simulationCount }} simulated
+                            {{ \Illuminate\Support\Str::plural('incident', $simulationCount) }}
+                            currently on record.
+                        </span>
+                    @endif
+                </div>
+            </form>
+            @endif
+
+            @if(($simulationCount ?? 0) > 0)
+                <form method="POST" action="{{ route('toc.devices.simulations.destroy') }}"
+                      class="mt-3 pt-3" style="border-top:1px solid #f5eeef;"
+                      onsubmit="return confirm('Remove all {{ $simulationCount }} simulated incidents? Real calls are untouched.');">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit"
+                            style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:7px;
+                                   padding:7px 16px; font-size:.82rem; font-weight:600; color:#475569; cursor:pointer;">
+                        Remove {{ $simulationCount }} simulated
+                        {{ \Illuminate\Support\Str::plural('incident', $simulationCount) }}
+                    </button>
+                    <span style="font-size:.8rem; color:#94a3b8; margin-left:8px;">
+                        Clears the board and the statistics after a demonstration.
+                    </span>
+                </form>
+            @endif
+        </div>
+    </div>
+
+    {{-- Confirmation. Same modal idiom as the edit-device dialog above. --}}
+    <div id="simulateConfirmModal"
+         style="display:none; position:fixed; inset:0; background:rgba(15,23,42,.55);
+                z-index:1200; align-items:center; justify-content:center; padding:20px;">
+        <div style="background:#fff; border-radius:12px; max-width:480px; width:100%; overflow:hidden;">
+            <div style="background:#c2410c; padding:14px 22px;">
+                <span style="color:#fff; font-weight:700; font-size:.95rem;">File a simulated crash?</span>
+            </div>
+            <div style="padding:20px 22px; font-size:.87rem; color:#374151; line-height:1.6;">
+                <p style="margin:0 0 10px;">This will:</p>
+                <ul style="margin:0 0 12px; padding-left:20px;">
+                    <li>create a <strong>real incident record</strong> in the database;</li>
+                    <li>put it on the live tracking board and <strong>sound the alert</strong>
+                        on every open TOC screen;</li>
+                    <li>keep sounding until somebody dispatches a unit or silences it.</li>
+                </ul>
+                <div id="simNotifyWarning"
+                     style="margin:0 0 12px; padding:10px 12px; background:#fef2f2; border:1px solid #fecaca;
+                            border-radius:7px; color:#991b1b; display:none;">
+                    It will also reach real people:
+                    <ul style="margin:6px 0 0; padding-left:20px;" id="simNotifyList"></ul>
+                </div>
+                <p style="margin:0; color:#64748b; font-size:.83rem;">
+                    Its address will read
+                    <code>{{ \App\Models\Incident::SIMULATION_PREFIX }}…</code>, and you can
+                    remove it again from this page afterwards.
+                </p>
+            </div>
+            <div style="padding:14px 22px; border-top:1px solid #f5eeef; display:flex; gap:10px; justify-content:flex-end;">
+                <button type="button" onclick="closeSimulateConfirm()"
+                        style="background:#f1f5f9; border:none; border-radius:7px; padding:8px 18px;
+                               font-size:.83rem; font-weight:600; color:#475569; cursor:pointer;">
+                    Cancel
+                </button>
+                <button type="button" onclick="document.getElementById('simulateForm').submit();"
+                        style="background:#c2410c; border:none; border-radius:7px; padding:8px 20px;
+                               font-size:.83rem; font-weight:600; color:#fff; cursor:pointer;">
+                    Yes, simulate it
+                </button>
+            </div>
+        </div>
+    </div>
+
 @endsection
 
 @push('scripts')
@@ -548,6 +850,79 @@
 
         document.getElementById('editDeviceModal').addEventListener('click', function(e) {
             if (e.target === this) closeEditModal();
+        });
+
+        // ── Demonstration panel ───────────────────────────────────────────
+        (function () {
+            const preset = document.getElementById('simPreset');
+            const place  = document.getElementById('simPlace');
+            const lat    = document.getElementById('simLat');
+            const lng    = document.getElementById('simLng');
+            if (!preset) return;   // no paired device, so the form isn't rendered
+
+            preset.addEventListener('change', function () {
+                if (this.value === 'custom') {
+                    // Leave whatever is there and let the operator type — clearing
+                    // the fields would make the required inputs invalid with no
+                    // visible reason.
+                    lat.focus();
+                    lat.select();
+                    return;
+                }
+                const [la, ln, name] = this.value.split('|');
+                lat.value   = la;
+                lng.value   = ln;
+                place.value = name;
+            });
+
+            // Typing coordinates by hand means the preset no longer describes
+            // what will be filed, so stop claiming it does.
+            [lat, lng].forEach(function (el) {
+                el.addEventListener('input', function () {
+                    preset.value = 'custom';
+                });
+            });
+        })();
+
+        function openSimulateConfirm() {
+            const form = document.getElementById('simulateForm');
+            if (!form.reportValidity()) return;
+
+            // Spell out, at the moment of confirming, exactly who this reaches
+            // outside the room. A ticked box three fields up the page is easy
+            // to forget you ticked.
+            const legs = [
+                ['simCallToc',   'ring the TOC hotline and speak the alert (about $0.29)'],
+                ['simSendSms',   "send a real SMS to the rider's emergency contact"],
+                ['simPushRider', "push a crash alert to the rider's phone"],
+                ['simAlertPatrol', 'call and push the nearest on-duty patrol unit'],
+            ];
+
+            const list = document.getElementById('simNotifyList');
+            const warn = document.getElementById('simNotifyWarning');
+            list.innerHTML = '';
+
+            let any = false;
+            legs.forEach(function ([id, text]) {
+                const box = document.getElementById(id);
+                if (box && box.checked) {
+                    any = true;
+                    const li = document.createElement('li');
+                    li.textContent = text;
+                    list.appendChild(li);
+                }
+            });
+
+            warn.style.display = any ? '' : 'none';
+            document.getElementById('simulateConfirmModal').style.display = 'flex';
+        }
+
+        function closeSimulateConfirm() {
+            document.getElementById('simulateConfirmModal').style.display = 'none';
+        }
+
+        document.getElementById('simulateConfirmModal').addEventListener('click', function (e) {
+            if (e.target === this) closeSimulateConfirm();
         });
     </script>
     <script>

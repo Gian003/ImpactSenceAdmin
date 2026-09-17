@@ -4,7 +4,6 @@ use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\PatrolRegistrationController;
 use App\Http\Controllers\Api\EmergencyContactController;
 use App\Http\Controllers\Api\RiderDeviceController;
-use App\Http\Controllers\Api\SpeedSampleController;
 use App\Http\Controllers\Api\IncidentController;
 use App\Http\Controllers\Api\IncidentFieldReportController;
 use App\Http\Controllers\Api\PatrolAuthController;
@@ -27,7 +26,7 @@ Broadcast::routes([
 // ── IOT DEVICE ────────────────────────────────────────────────────────────────
 // No Sanctum token — authenticated by device_code only
 Route::prefix('device')->group(function () {
-    // Deliberately generous. This is the crash path: a helmet that has just
+    // Deliberately generous. This is the crash path: a device that has just
     // detected an impact, possibly retrying over a poor GSM link, must not be
     // turned away by a rate limit. 30/minute stops a loop hammering the
     // endpoint while leaving any plausible real crash — including retries —
@@ -74,11 +73,6 @@ Route::prefix('rider')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('logout',    [RiderAuthController::class, 'logout']);
 
-        // Anonymous GPS speed telemetry, batched from the navigation screen.
-        // Authenticated so only real riders can write to it, but the rows
-        // themselves carry no identity — see SpeedSampleController.
-        Route::post('speed-samples', [SpeedSampleController::class, 'store'])
-            ->middleware('throttle:30,1');
         Route::get('profile',    [RiderAuthController::class, 'profile']);
         Route::patch('profile',          [RiderAuthController::class, 'updateProfile']);
         Route::post('change-password',   [RiderAuthController::class, 'changePassword']);
@@ -129,6 +123,11 @@ Route::prefix('patrol')->group(function () {
         Route::post('logout',          [PatrolAuthController::class, 'logout']);
         Route::post('update-location', [PatrolAuthController::class, 'updateLocation']);
         Route::post('fcm-token',       [PatrolAuthController::class, 'updateFcmToken']);
+
+        // On/off-duty switch. Only on-duty units are alerted as the nearest to
+        // a crash. Capped like the other writes; a person flips this by hand.
+        Route::post('duty',            [PatrolAuthController::class, 'updateDuty'])
+            ->middleware('throttle:20,1');
 
         // Incidents
         Route::get('incidents',                          [IncidentController::class, 'patrolIndex']);

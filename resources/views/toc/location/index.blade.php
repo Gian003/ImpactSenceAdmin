@@ -8,20 +8,27 @@
 
 @section('content')
 
-    {{-- SUCCESS FLASH --}}
+    {{-- SUCCESS FLASH — floated over the board rather than stacked above it.
+         In the flow it pushed the map down by its own height, and it appears
+         at exactly the moment an operator has just dispatched and wants to
+         watch the unit move. --}}
     @if (session('dispatched'))
-        <div class="alert alert-success alert-dismissible py-2 mb-3" style="font-size:.88rem;">
+        <div class="alert alert-success alert-dismissible py-2 tracking-flash" style="font-size:.88rem;">
             {{ session('dispatched') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
 
-    {{-- Map first (full width, sized to the viewport) so it's always fully
-     visible without scrolling past anything; alert cards sit in their own
-     capped, scrollable strip below it instead of pushing the map around —
-     see location.css. Map markup comes before the alert cards in the HTML
-     here (not just visually) so tab order and screen readers match what's
-     shown on screen. --}}
+    {{-- The board fills the viewport and never scrolls: the map takes the
+     whole area, and the alert cards float over its top-left corner instead
+     of sitting in a strip underneath. Stacked, the two could not both be on
+     screen at once — the operator scrolled down to read a card and lost
+     sight of the map, or shrank the map to keep the cards visible, and the
+     map is the thing they are dispatching from.
+
+     The overlay is positioned by CSS against .tracking-layout, so the map
+     markup still comes first in the DOM — tab order and screen-reader order
+     stay "map, then alerts", matching how the page is used. --}}
     <div class="tracking-layout">
 
         {{-- MAP + OVERLAYS --}}
@@ -36,15 +43,6 @@
          Speed/Prone/Patrollers panels below, which are bottom-anchored. --}}
             <div class="map-overlay-topright">
                 <div class="map-legend-card">
-                    <button class="legend-btn" id="btnSpeed" onclick="togglePanel('speed')">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none"
-                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                            viewBox="0 0 24 24">
-                            <path d="M12 2a10 10 0 1 0 10 10" />
-                            <path d="M12 6v6l4 2" />
-                        </svg>
-                        Speed Reports per Area
-                    </button>
                     <button class="legend-btn" id="btnProne" onclick="togglePanel('prone')">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none"
                             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -97,6 +95,7 @@
                         </svg>
                         Satellite View
                     </button>
+
                 </div>
 
                 <div class="map-key-card">
@@ -143,157 +142,12 @@
                 </div>
             </div>
 
-            {{-- Speed Reports panel — police-defined posted limits (Speed Zones)
-         compared against real observed GPS speed samples within each
-         zone's radius. Zones averaging above their limit are flagged and
-         sorted to the top. --}}
-            <div class="map-panel" id="speedPanel">
-                <div class="panel-card" style="min-width:520px; max-width:600px;">
-                    {{-- Panel header --}}
-                    <div
-                        style="background:#7B1A2E; padding:10px 16px; display:flex; align-items:center; justify-content:space-between;">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none"
-                                stroke="#F4C5D0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                viewBox="0 0 24 24">
-                                <path d="M12 2a10 10 0 1 0 10 10" />
-                                <path d="M12 6v6l4 2" />
-                            </svg>
-                            <span style="color:#fff; font-size:.88rem; font-weight:700; letter-spacing:.03em;">Speed
-                                Reports per Area</span>
-                        </div>
-                        <span style="font-size:.88rem; color:#F4C5D0;">
-                            {{ ($speedZoneStats ?? collect())->count() }}
-                            zone{{ ($speedZoneStats ?? collect())->count() !== 1 ? 's' : '' }}
-                        </span>
-                    </div>
-
-                    {{-- Scrollable body --}}
-                    <div class="panel-scroll">
-                        <table style="width:100%; border-collapse:collapse;">
-                            <thead>
-                                <tr>
-                                    <th
-                                        style="padding:9px 14px; background:#7B1A2E; color:#fff; font-size:.85rem; font-weight:700; border:none; white-space:nowrap;">
-                                        Zone</th>
-                                    <th
-                                        style="padding:9px 14px; background:#7B1A2E; color:#fff; font-size:.85rem; font-weight:700; border:none; white-space:nowrap;">
-                                        Limit</th>
-                                    <th
-                                        style="padding:9px 14px; background:#7B1A2E; color:#fff; font-size:.85rem; font-weight:700; border:none; white-space:nowrap;">
-                                        Observed Avg</th>
-                                    <th
-                                        style="padding:9px 14px; background:#7B1A2E; color:#fff; font-size:.85rem; font-weight:700; border:none; white-space:nowrap;">
-                                        Speed Gauge</th>
-                                    <th
-                                        style="padding:9px 14px; background:#7B1A2E; color:#fff; font-size:.85rem; font-weight:700; border:none; white-space:nowrap;">
-                                        Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse($speedZoneStats ?? [] as $z)
-                                    @php
-                                        $pct =
-                                            $z->avg_speed !== null && $z->speed_limit_kph > 0
-                                                ? min(round(($z->avg_speed / $z->speed_limit_kph) * 100), 140)
-                                                : null;
-                                        $barColor =
-                                            $z->avg_speed === null
-                                                ? '#d1d5db'
-                                                : ($z->is_violating
-                                                    ? '#e53e3e'
-                                                    : '#2a7c5b');
-                                    @endphp
-                                    <tr>
-                                        <td
-                                            style="padding:10px 14px; font-size:.88rem; color:#1e293b; font-weight:600; border-bottom:1px solid #f5eeef; max-width:140px; word-break:break-word;">
-                                            {{ $z->name }}
-                                        </td>
-                                        <td
-                                            style="padding:10px 14px; font-size:.88rem; color:#475569; border-bottom:1px solid #f5eeef; white-space:nowrap;">
-                                            <span
-                                                style="display:inline-block; padding:2px 9px; border-radius:20px; font-size:.88rem; font-weight:600; background:#fce7f3; color:#7B1A2E;">
-                                                {{ $z->speed_limit_kph }} kph
-                                            </span>
-                                        </td>
-                                        <td
-                                            style="padding:10px 14px; font-size:.88rem; color:#374151; border-bottom:1px solid #f5eeef; white-space:nowrap;">
-                                            {{ $z->avg_speed !== null ? number_format($z->avg_speed, 1) . ' kph' : '—' }}
-                                            @if ($z->avg_speed !== null && $z->sample_count > 0)
-                                                <div style="font-size:.86rem; color:#6b7280; margin-top:1px;">
-                                                    {{ $z->sample_count }} sample{{ $z->sample_count !== 1 ? 's' : '' }}
-                                                </div>
-                                            @endif
-                                        </td>
-                                        <td style="padding:10px 14px; border-bottom:1px solid #f5eeef; min-width:100px;">
-                                            @if ($pct !== null)
-                                                <div role="progressbar" aria-valuenow="{{ $pct }}"
-                                                    aria-valuemin="0" aria-valuemax="100"
-                                                    aria-label="{{ $z->name }}: {{ $pct }}% of speed limit{{ $z->is_violating ? ', exceeding limit' : '' }}"
-                                                    style="position:relative; height:7px; background:#f1f5f9; border-radius:4px; overflow:hidden; min-width:80px;">
-                                                    <div
-                                                        style="position:absolute; top:0; left:0; height:100%; width:{{ min($pct, 100) }}%; background:{{ $barColor }}; border-radius:4px; transition:width .3s;">
-                                                    </div>
-                                                    @if ($z->is_violating)
-                                                        <div
-                                                            style="position:absolute; top:0; left:71.4%; height:100%; width:1.5px; background:#7B1A2E; opacity:.7;">
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                                <div style="font-size:.86rem; color:#6b7280; margin-top:2px;">
-                                                    {{ $pct }}% of limit</div>
-                                            @else
-                                                <div style="font-size:.88rem; color:#6b7280; font-style:italic;">no data
-                                                </div>
-                                            @endif
-                                        </td>
-                                        <td
-                                            style="padding:10px 14px; border-bottom:1px solid #f5eeef; white-space:nowrap;">
-                                            @if ($z->avg_speed === null)
-                                                <span
-                                                    style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:.88rem; font-weight:600; background:#f1f5f9; color:#475569;">No
-                                                    data</span>
-                                            @elseif($z->is_violating)
-                                                <span
-                                                    style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:.88rem; font-weight:700; background:#fef2f2; color:#b91c1c;">⚠
-                                                    Speeding</span>
-                                            @else
-                                                <span
-                                                    style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:.88rem; font-weight:700; background:#f0fdf4; color:#2a7c5b;">✓
-                                                    OK</span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="5"
-                                            style="padding:24px 16px; text-align:center; color:#6b7280; font-size:.86rem;">
-                                            No speed zones defined yet.
-                                        </td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {{-- Footer --}}
-                    <div
-                        style="padding:8px 14px; border-top:1px solid #f5eeef; display:flex; align-items:center; justify-content:space-between; background:#fafafa;">
-                        <span style="font-size:.88rem; color:#6b7280;">Progress bar = observed avg vs posted limit</span>
-                        <a href="{{ route('toc.speed-zones.index') }}"
-                            style="font-size:.86rem; color:#7B1A2E; font-weight:700; text-decoration:none;">
-                            Manage Zones →
-                        </a>
-                    </div>
-                </div>
-            </div>
-
             {{-- Accident Prone Area panel — real incidents ranked by density,
          grouped into ~111m areas (the heatmap layer plots every point;
          this ranks the areas so they're actually actionable). --}}
             <div class="map-panel" id="pronePanel">
                 <div class="panel-card" style="min-width:420px; max-width:480px;">
-                    {{-- Panel header — matches the Speed Reports panel's treatment
+                    {{-- Panel header — maroon bar, icon, title, live count
                          (maroon bar, icon, title, live count) so the two panels
                          read as the same kind of thing instead of one looking
                          like an afterthought next to the other. --}}
@@ -313,7 +167,7 @@
                         </span>
                     </div>
 
-                    {{-- Scrollable body — capped the same way as Speed Reports, so
+                    {{-- Scrollable body — capped the same way as the other panels, so
                          a full top-10 list of two-line rows (coordinates + geocoded
                          address) doesn't grow the panel past a comfortable height. --}}
                     <div class="panel-scroll">
@@ -423,15 +277,36 @@
             </div>
         </div>
 
-        <div class="alerts-panel">
+        <div class="alerts-panel" id="alertsPanel">
             {{-- ACCIDENT ALERT CARDS (real DB incidents) --}}
             {{-- A new emergency reaches a screen reader through nothing at all
                  today: the panel has an audio beep and no accessible
                  announcement. This is the only assertive region on the page,
                  kept separate from the cards so the "3 minutes ago" ticker
-                 cannot spam it. --}}
+                 cannot spam it.
+
+                 Kept outside the collapsible body below: collapsing sets
+                 display:none, which takes an element out of the accessibility
+                 tree entirely — a collapsed panel would silently stop
+                 announcing new emergencies. --}}
             <p id="alert-announcer" class="visually-hidden" role="status"
                aria-live="assertive" aria-atomic="true"></p>
+
+            {{-- An overlay covers map the operator may want back. This gives it
+                 back in one click without hiding the fact that alerts are
+                 still open — the count stays on the collapsed bar. --}}
+            <button type="button" class="alerts-panel-head" id="alertsPanelToggle"
+                    aria-expanded="true" aria-controls="alertsPanelBody">
+                <svg class="alerts-chevron" xmlns="http://www.w3.org/2000/svg" width="15" height="15"
+                     fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                     stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+                <span class="alerts-panel-title">Active Alerts</span>
+                <span class="alerts-count" id="alertsCount">0</span>
+            </button>
+
+            <div class="alerts-panel-body" id="alertsPanelBody">
 
             <div id="no-incidents-banner" class="alert mb-3"
                 style="background:#f0f7fa; border:1.5px solid #b8cdd9; font-size:.88rem; {{ ($pendingIncidents ?? collect())->isEmpty() ? '' : 'display:none;' }}">
@@ -476,7 +351,10 @@
                             'arrived'    => ['#5b21b6', 'ON SCENE'],
                         ][$inc->status] ?? ['#64748b', strtoupper($inc->status)];
                     @endphp
-                    <div class="col-md-6" data-incident-id="{{ $inc->id }}"
+                    {{-- One per row: the overlay is a narrow rail, and a
+                         two-up grid inside it wrapped every field onto its own
+                         line. --}}
+                    <div class="col-12" data-incident-id="{{ $inc->id }}"
                         data-reported-at="{{ $inc->created_at->toISOString() }}"
                         data-severity="{{ $inc->severity }}">
                         <div class="p-3 position-relative rounded-3 alert-card"
@@ -588,6 +466,7 @@
                     </div>
                 @endforeach
             </div>
+            </div>
         </div>
     </div>
 
@@ -602,7 +481,12 @@
         window.LocationTrackingConfig = {
             pendingIncidents: @json($pendingIncidents ?? []),
             patrollers: @json($patrollers ?? []),
-            allIncidentCoords: @json($allIncidentCoords ?? []),
+            // The same ranked, tiered areas the Accident Prone Area panel
+            // lists. The map used to plot every raw incident coordinate through
+            // Google's heatmap layer instead, so the map and the panel were two
+            // different answers to the same question; now they are one, and the
+            // page no longer ships one row per incident forever.
+            incidentHotspots: @json($incidentHotspots ?? []),
             dispatchUrlTemplate: @json(route('toc.incidents.dispatch', ['incident' => '__ID__'])),
             // The TOC-side incident view. Pointedly not the investigation
             // report page, which the operator cannot open and which holds
@@ -612,7 +496,7 @@
     </script>
     <script src="{{ asset('js/toc/location.js') }}?v={{ filemtime(public_path('js/toc/location.js')) }}"></script>
     <script
-        src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}&libraries=visualization&callback=initMap"
+        src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}&callback=initMap"
         async defer
         onerror="document.getElementById('map').innerHTML = '&lt;div style=&quot;padding:20px;color:#b91c1c;font-size:.85rem;&quot;&gt;Failed to load Google Maps. Check your internet connection or API key.&lt;/div&gt;'">
     </script>

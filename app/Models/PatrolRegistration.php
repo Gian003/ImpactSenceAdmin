@@ -10,6 +10,42 @@ class PatrolRegistration extends Model
 {
     use HasFactory;
 
+    /**
+     * The reasons a registration is normally turned down.
+     *
+     * Kept here rather than only in the Blade so the server can check that a
+     * submitted reason is one of them — a dropdown alone is a suggestion, not
+     * a constraint. Worded as the applicant will read them: the text is sent
+     * to their phone verbatim in the rejection notification, so each one has
+     * to stand on its own without the reviewer adding anything.
+     *
+     * They follow the checks a reviewer actually performs against the
+     * personnel roster, in the order those checks fail most often.
+     */
+    public const REJECTION_REASONS = [
+        'Badge number not found in the personnel roster.',
+        'Name does not match the roster record for this badge number.',
+        'Rank does not match the roster record for this badge number.',
+        'Photograph is unclear or does not match the roster reference photo.',
+        'Officer is no longer assigned to this station.',
+        'An account already exists for this badge number.',
+        'Submitted details are incomplete or contain errors.',
+    ];
+
+    /** Value used by the form when the reviewer writes their own reason. */
+    public const REJECTION_OTHER = 'other';
+
+    // Where the registration photo came from. Null on registrations made
+    // before gallery uploads were allowed — those were all camera captures.
+    public const PHOTO_CAMERA  = 'camera';
+    public const PHOTO_GALLERY = 'gallery';
+
+    /** True unless the applicant chose the photo from their gallery. */
+    public function photoWasTakenLive(): bool
+    {
+        return $this->photo_source !== self::PHOTO_GALLERY;
+    }
+
     protected $fillable = [
         'first_name',
         'last_name',
@@ -21,6 +57,7 @@ class PatrolRegistration extends Model
         'badge_number',
         'rank',
         'photo_path',
+        'photo_source',
         'reviewed_by',
         'reviewed_at',
         'fcm_token',

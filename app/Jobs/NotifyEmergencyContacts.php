@@ -32,10 +32,19 @@ class NotifyEmergencyContacts implements ShouldQueue
      */
     public bool $deleteWhenMissingModels = true;
 
-    public function __construct(private readonly Incident $incident) {}
+    /**
+     * $sendSms / $makeCall default to true, so every existing dispatch site —
+     * and therefore every real crash — behaves exactly as before. The TOC's
+     * demonstration tool is the only caller that passes anything else.
+     */
+    public function __construct(
+        private readonly Incident $incident,
+        private readonly bool $sendSms = true,
+        private readonly bool $makeCall = true,
+    ) {}
 
     public function handle(EmergencyNotificationService $notifier): void
     {
-        $notifier->notifyEmergencyContact($this->incident);
+        $notifier->notifyEmergencyContact($this->incident, $this->sendSms, $this->makeCall);
     }
 }

@@ -37,7 +37,16 @@ class PatrolRegistrationController extends Controller
                                         'unique:patrol_units,badge_number',
                                         'unique:patrol_registrations,badge_number'],
             'photo'                 => ['required', 'image', 'max:5120'], // 5MB
+            // Optional so an older app build, which only ever used the
+            // camera, can still register.
+            'photo_source'          => ['nullable', 'in:camera,gallery'],
             'fcm_token'             => ['nullable', 'string'],
+        ], [
+            // A gallery pick can be a format the dashboard cannot display
+            // (an iPhone HEIC, for example). Tell the applicant what to do
+            // rather than just "must be an image".
+            'photo.image' => 'Please use a JPG or PNG photo. Other formats cannot be reviewed.',
+            'photo.max'   => 'That photo is too large. Please choose one under 5 MB.',
         ]);
 
         $roster = PersonnelRoster::active()
@@ -60,7 +69,8 @@ class PatrolRegistrationController extends Controller
             // Rank comes from the roster, not the applicant — same principle
             // as badge_number: authoritative source, not self-reported.
             'rank'       => $roster->rank,
-            'photo_path' => $photoPath,
+            'photo_path'   => $photoPath,
+            'photo_source' => $data['photo_source'] ?? PatrolRegistration::PHOTO_CAMERA,
         ]);
 
         // Broadcast to TOC dashboard so they see the badge immediately — non-fatal

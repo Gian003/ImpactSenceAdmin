@@ -1,9 +1,6 @@
 @extends('admin.layouts.app')
 @section('title', 'Command Overview')
 
-@push('styles')
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-@endpush
 
 @section('content')
 
@@ -132,14 +129,23 @@
                             </td>
                             <td style="padding:10px 14px; border-bottom:1px solid #f5eeef;">
                                 @php
-                                $ss = match($inc->status) {
-                                    'pending'    => 'badge-pending',
-                                    'dispatched' => 'badge-toc',
-                                    'resolved'   => 'badge-accepted',
-                                    default      => 'badge-expired',
-                                };
+                                    // 'arrived' and 'false_alarm' both existed in the
+                                    // database and neither had a colour here, so a unit
+                                    // already on the scene and a call written off as a
+                                    // false alarm were drawn identically in grey.
+                                    $ss = match($inc->status) {
+                                        'pending'     => 'badge-pending',
+                                        'dispatched'  => 'badge-toc',
+                                        'arrived'     => 'badge-inv',
+                                        'resolved'    => 'badge-accepted',
+                                        'false_alarm' => 'badge-inactive',
+                                        default       => 'badge-expired',
+                                    };
+                                    // ucfirst() alone left the underscore on screen:
+                                    // "false_alarm" rendered as "False_alarm".
+                                    $statusLabel = ucfirst(str_replace('_', ' ', $inc->status));
                                 @endphp
-                                <span class="status-badge {{ $ss }}">{{ ucfirst($inc->status) }}</span>
+                                <span class="status-badge {{ $ss }}">{{ $statusLabel }}</span>
                             </td>
                             <td style="padding:10px 14px; color:#64748b; font-size:.78rem; border-bottom:1px solid #f5eeef; white-space:nowrap;">{{ $inc->created_at->format('M d, H:i') }}</td>
                         </tr>
@@ -157,9 +163,13 @@
         <div class="d-flex align-items-center justify-content-between mb-2">
             <h6 class="fw-bold mb-0" style="color:#1e293b;">Incidents — Last 6 Months</h6>
         </div>
-        <div class="card border-0 rounded-3 overflow-hidden" style="border:1px solid #e8d5d9 !important; height:calc(100% - 28px);">
-            <div class="card-panel-body">
-                <canvas id="monthChart" height="220"></canvas>
+        {{-- The canvas needs a sized box to fill now that the chart no longer
+             carries its own aspect ratio. min-height keeps it legible when the
+             incidents table beside it is short or empty. --}}
+        <div class="card border-0 rounded-3 overflow-hidden d-flex"
+             style="border:1px solid #e8d5d9 !important; height:calc(100% - 28px); min-height:280px;">
+            <div class="card-panel-body flex-grow-1" style="position:relative; min-height:0;">
+                <canvas id="monthChart"></canvas>
             </div>
         </div>
     </div>
@@ -169,26 +179,50 @@
 @endsection
 
 @push('scripts')
+{{-- Loaded here rather than on the styles stack, which put a render-blocking
+     script in <head> for no reason. --}}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-new Chart(document.getElementById('monthChart'), {
-    type: 'bar',
-    data: {
-        labels: @json($byMonth->pluck('month')),
-        datasets: [{
-            label: 'Incidents',
-            data: @json($byMonth->pluck('total')),
-            backgroundColor: 'rgba(123,26,46,.75)',
-            borderRadius: 5,
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: {
-            y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f1f5f9' } },
-            x: { grid: { display: false } }
-        }
+(function () {
+    const canvas = document.getElementById('monthChart');
+    if (!canvas) return;
+
+    // Guarded because this page is demonstrated on a laptop that may have no
+    // internet: with the CDN blocked, `Chart` is undefined and the bare
+    // constructor threw, taking out every other script on the page with it.
+    if (typeof Chart === 'undefined') {
+        canvas.insertAdjacentHTML('afterend',
+            '<div style="font-size:.82rem;color:#64748b;text-align:center;padding:24px 8px;">'
+            + 'Chart library unavailable offline. The figures above are unaffected.</div>');
+        canvas.remove();
+        return;
     }
-});
+
+    new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: @json($byMonth->pluck('month')),
+            datasets: [{
+                label: 'Incidents',
+                data: @json($byMonth->pluck('total')),
+                backgroundColor: 'rgba(123,26,46,.75)',
+                borderRadius: 5,
+            }]
+        },
+        options: {
+            responsive: true,
+            // Without this Chart.js keeps its own 2:1 ratio and ignores the
+            // canvas height, so the chart card ended up a different height
+            // from the incidents table beside it and the two columns did not
+            // line up. Now it fills whatever the card gives it.
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 }, grid: { color: '#f1f5f9' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+})();
 </script>
 @endpush

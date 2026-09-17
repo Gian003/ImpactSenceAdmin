@@ -60,4 +60,23 @@ return [
         'voice'        => env('TWILIO_VOICE', 'Polly.Matthew-Neural'),
     ],
 
+    // Alerting the nearest free patrol unit alongside the TOC hotline call.
+    // See App\Jobs\AlertNearestPatrol.
+    //
+    // Off by default: it lets a crash reach an officer before the TOC has
+    // dispatched anyone, which is a change to how PNP Urdaneta runs calls and
+    // theirs to approve. The TOC still sees every alert and can reassign.
+    'patrol_alert' => [
+        'enabled'        => (bool) env('PATROL_ALERT_ENABLED', false),
+        // Farther than this and a unit is no nearer than the TOC's own choice.
+        'radius_km'      => (float) env('PATROL_ALERT_RADIUS_KM', 5),
+        // How long an alerted unit has to accept before the next one is tried.
+        'accept_seconds' => (int) env('PATROL_ALERT_ACCEPT_SECONDS', 90),
+        // Units tried in turn before the call is left to the TOC alone.
+        'max_units'      => (int) env('PATROL_ALERT_MAX_UNITS', 3),
+        // Ring the officer's phone as well as pushing to the app. The push
+        // carries the map pin; the call is what gets noticed on a motorcycle.
+        'call'           => (bool) env('PATROL_ALERT_CALL', true),
+    ],
+
 ];

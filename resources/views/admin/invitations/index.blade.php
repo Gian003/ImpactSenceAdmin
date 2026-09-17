@@ -36,8 +36,9 @@
                             </option>
                         </select>
                     </div>
+                    {{-- Was #1a2b4a navy, the only navy in a maroon interface. --}}
                     <button type="submit" class="btn w-100"
-                            style="background:#1a2b4a; color:#fff; font-size:.875rem; font-weight:600; padding:10px;">
+                            style="background:var(--admin-maroon); color:#fff; font-size:.875rem; font-weight:600; padding:10px;">
                         Send Invitation
                     </button>
                 </form>
@@ -93,8 +94,22 @@
                                 </span>
                             </td>
                             <td style="color:#64748b;">{{ $inv->invitedBy?->full_name ?? '—' }}</td>
+                            {{-- An absolute timestamp alone makes the reader do
+                                 date arithmetic to answer the only question they
+                                 have: is this about to lapse. Null-guarded too —
+                                 the bare ->format() fataled the whole page on a
+                                 row with no expiry. --}}
                             <td style="color:#64748b; font-size:.78rem;">
-                                {{ $inv->expires_at->format('M d, Y H:i') }}
+                                @if($inv->expires_at)
+                                    {{ $inv->expires_at->format('M d, Y H:i') }}
+                                    @if($inv->isPending())
+                                        <div style="font-size:.72rem; color:#94a3b8;">
+                                            {{ $inv->expires_at->diffForHumans() }}
+                                        </div>
+                                    @endif
+                                @else
+                                    —
+                                @endif
                             </td>
                             <td>
                                 @if($inv->isPending())
@@ -103,7 +118,7 @@
                                     <button type="submit"
                                             class="btn btn-sm btn-outline-danger"
                                             style="font-size:.72rem; padding:2px 8px;"
-                                            onclick="return confirm('Revoke this invitation?')">
+                                            data-confirm="Revoke the invitation sent to {{ $inv->email }}? The link in their email will stop working.">
                                         Revoke
                                     </button>
                                 </form>
@@ -127,3 +142,20 @@
 </div>
 
 @endsection
+
+@push('scripts')
+<script>
+    // One delegated listener for every confirm on the page. Reading the message
+    // from a data attribute keeps it out of JavaScript source entirely, so an
+    // officer named O'Brien cannot break the button that deactivates them.
+    document.addEventListener('click', function (e) {
+        const el = e.target.closest('[data-confirm]');
+        if (!el) return;
+        if (!window.confirm(el.dataset.confirm)) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    });
+</script>
+@endpush
+

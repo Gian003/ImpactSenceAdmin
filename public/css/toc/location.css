@@ -1,23 +1,29 @@
-/* Map first, full width, sized to the viewport so it's fully visible
-   without scrolling past anything — that's the officer's primary focus.
-   Alert cards live in a capped, independently-scrollable strip right below
-   it, instead of a fixed pixel height that could either overshoot the
-   screen (a giant fixed height) or get pushed around by however many
-   accidents happen to be active (no cap at all). */
+/* ── Board layout ──────────────────────────────────────────────────────
+   The map and the alert cards used to be stacked: a 63vh map with a 350px
+   card strip under it, which together are taller than any laptop screen. So
+   the page scrolled, and an operator could have the map or the cards in view
+   but not both — on the one page whose entire job is looking at both at once.
+
+   Now the map fills the board and the cards float over its top-left corner.
+   Nothing scrolls except the card rail itself.
+
+   140px is the chrome above and below this element: the page title row
+   (24 + 41 + 8) and the content wrapper's pb-5 (48). Overshooting it wastes
+   map; undershooting it brings the scrollbar back, so it is stated here once
+   rather than guessed at in two places. */
 .tracking-layout {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+    position: relative;
+    height: calc(100vh - 140px);
+    min-height: 480px;
 }
 
 /* Map container — Bootstrap cannot position/size this */
 .map-wrap {
     position: relative;
+    height: 100%;
     border-radius: 1rem;
     overflow: hidden;
     border: 1.5px solid #c0d4e0;
-    height: 63vh; /* dominates the screen and stays fully visible on both small and large monitors, unlike a fixed px height */
-    min-height: 420px; /* keeps the map usable even on a short viewport (e.g. a laptop with browser chrome eating into 70vh) */
     background: #e8f0f5;
 }
 
@@ -26,10 +32,155 @@
     height: 100%;
 }
 
+/* ── Alert rail ────────────────────────────────────────────────────────
+   Positioned against .tracking-layout, not .map-wrap, so the markup order
+   stays "map, then alerts" — see the note in the Blade file.
+
+   z-index sits below the 800 used by the bottom-anchored map panels: when one
+   of those opens, it should win, and .panel-open below gets the rail out of
+   its way rather than letting them fight. */
 .alerts-panel {
-    max-height: 350px;
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 780;
+    width: 370px;
+    max-width: calc(100% - 28px);
+    max-height: calc(100% - 28px);
+    display: flex;
+    flex-direction: column;
+    border-radius: .75rem;
+    overflow: hidden;
+    background: rgba(255, 255, 255, .97);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, .16);
+}
+
+/* The Prone and Patrollers panels are anchored to the bottom of the map.
+   Capping the rail is what keeps the two from overlapping on a short screen. */
+.map-wrap.panel-open ~ .alerts-panel {
+    max-height: calc(100% - 330px);
+}
+
+/* Collapsed, the rail is just its own header bar: one click gives the whole
+   map back, and the count stays visible so "collapsed" never reads as
+   "nothing happening". */
+.alerts-panel.collapsed {
+    max-height: none;
+}
+
+.alerts-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 9px 14px;
+    border: none;
+    background: #7B1A2E;
+    color: #fff;
+    font-size: .88rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-align: left;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.alerts-panel-head:hover { background: #6a1727; }
+
+.alerts-panel-head:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: -4px;
+}
+
+.alerts-panel-title { flex-grow: 1; }
+
+.alerts-chevron { transition: transform .18s; }
+.alerts-panel.collapsed .alerts-chevron { transform: rotate(-90deg); }
+
+/* The count is the one thing that must read at a glance from across a desk,
+   so it gets the contrast: white pill on maroon. Turns red once there is
+   something in it. */
+.alerts-count {
+    min-width: 24px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .22);
+    font-size: .82rem;
+    font-weight: 800;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.alerts-panel.has-alerts .alerts-count {
+    background: #fff;
+    color: #b91c1c;
+}
+
+.alerts-panel-body {
+    /* min-height:0 is load-bearing, not tidying. A flex item defaults to an
+       automatic minimum size based on its content, so without this the card
+       list refuses to shrink below its natural height: it overflows the rail
+       instead of scrolling inside it, and the rail's overflow:hidden then
+       silently clips the cards off the bottom rather than revealing them. */
+    min-height: 0;
+    flex: 1 1 auto;
     overflow-y: auto;
-    padding-right: 6px;
+    padding: 12px 12px 2px;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.alerts-panel-body::-webkit-scrollbar { width: 8px; }
+.alerts-panel-body::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+/* The dispatch confirmation floats over the board instead of pushing it
+   down. Centred over the map, above every map overlay, and dismissible. */
+.tracking-flash {
+    position: absolute;
+    top: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1200;
+    margin: 0;
+    max-width: min(520px, calc(100vw - 320px));
+    box-shadow: 0 6px 20px rgba(0, 0, 0, .18);
+}
+
+/* Below this width the rail would cover most of the map, so the page falls
+   back to the stacked layout it had before — on a screen that small, scrolling
+   between the two is the lesser problem. */
+@media (max-width: 991.98px) {
+    .tracking-layout {
+        height: auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .map-wrap {
+        height: 60vh;
+        min-height: 380px;
+    }
+
+    .alerts-panel {
+        position: static;
+        width: auto;
+        max-width: none;
+        max-height: 350px;
+    }
+
+    .map-wrap.panel-open ~ .alerts-panel { max-height: 350px; }
+
+    .tracking-flash {
+        position: static;
+        transform: none;
+        max-width: none;
+        margin-bottom: 12px;
+    }
 }
 
 /* Wraps the panel-toggle card and the static map key so both stack in the
@@ -258,11 +409,6 @@
 }
 
 /* Speed panel overrides — inline maroon <th> styles take precedence */
-#speedPanel .panel-card th {
-    background: transparent;
-    border-bottom: none;
-}
-
 .panel-card td {
     padding: 9px 15px;
     font-size: .86rem;

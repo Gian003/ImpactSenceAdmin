@@ -29,6 +29,7 @@ class PatrolUnit extends Authenticatable
         'current_longitude',
         'last_seen_at',
         'status',
+        'on_duty',
         'fcm_token',
     ];
 
@@ -43,8 +44,33 @@ class PatrolUnit extends Authenticatable
             'current_latitude'  => 'decimal:7',
             'current_longitude' => 'decimal:7',
             'last_seen_at'      => 'datetime',
+            'on_duty'           => 'boolean',
             'password'          => 'hashed',
         ];
+    }
+
+    // Whether this unit may be asked to take a new call right now. All four
+    // have to hold, and each one catches a different way of alerting the
+    // wrong person:
+    //   on_duty       the officer has said they are taking calls
+    //   isOnline()    the app is actually reporting in, so the position is live
+    //   not dispatched  they are not already on another call
+    //   coordinates   there is a position to measure distance from at all
+    public function isFreeToRespond(): bool
+    {
+        return $this->on_duty
+            && $this->isOnline()
+            && $this->status !== 'dispatched'
+            && $this->current_latitude !== null
+            && $this->current_longitude !== null;
+    }
+
+    // What `status` should read when a unit is not on a call: free if the
+    // officer is on shift, off duty if not. Finishing a call used to reset
+    // every unit to off_duty regardless.
+    public function idleStatus(): string
+    {
+        return $this->on_duty ? 'available' : 'off_duty';
     }
 
     // Presence, which is a separate question from `status`: this asks whether

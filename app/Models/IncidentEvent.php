@@ -22,6 +22,12 @@ class IncidentEvent extends Model
     public const CANCELLED          = 'cancelled';
     public const REOPENED           = 'reopened';
     public const FIELD_REPORT_FILED = 'field_report_filed';
+    // The nearest free patrol unit was called and pushed. Not a dispatch:
+    // nobody is assigned until an officer accepts, or the TOC assigns.
+    public const PATROL_ALERTED     = 'patrol_alerted';
+    // Why the nearest-patrol alert did not run, or stopped. Recorded so a
+    // case file never leaves a reader wondering why no unit was alerted.
+    public const PATROL_ALERT_ENDED = 'patrol_alert_ended';
 
     protected $fillable = [
         'incident_id', 'type', 'status_from', 'status_to',
@@ -151,6 +157,11 @@ class IncidentEvent extends Model
                     ? " with {$this->payload['photo_count']} photograph"
                         . ($this->payload['photo_count'] === 1 ? '' : 's')
                     : ''),
+            self::PATROL_ALERTED => ($unit ? "Nearest unit {$unit} alerted" : 'Nearest patrol unit alerted')
+                . (isset($this->payload['distance_km'])
+                    ? " ({$this->payload['distance_km']} km away)" : ''),
+            self::PATROL_ALERT_ENDED => 'Patrol alert stopped: '
+                . ($this->payload['reason'] ?? 'no reason recorded'),
             default => ucfirst(str_replace('_', ' ', $this->type)),
         };
     }
@@ -171,6 +182,8 @@ class IncidentEvent extends Model
             self::CANCELLED          => "\u{2715}",
             self::REOPENED           => "\u{21BA}",
             self::FIELD_REPORT_FILED => "\u{270E}",
+            self::PATROL_ALERTED     => "\u{25CE}",
+            self::PATROL_ALERT_ENDED => "\u{2013}",
             default                  => "\u{2022}",
         };
     }
@@ -187,6 +200,8 @@ class IncidentEvent extends Model
             self::CANCELLED          => '#64748b',
             self::REOPENED           => '#c2410c',
             self::FIELD_REPORT_FILED => '#1b3d52',
+            self::PATROL_ALERTED     => '#b45309',
+            self::PATROL_ALERT_ENDED => '#94a3b8',
             default                  => '#94a3b8',
         };
     }

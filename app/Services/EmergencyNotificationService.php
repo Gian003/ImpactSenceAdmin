@@ -27,8 +27,25 @@ class EmergencyNotificationService
     //
     // Both are non-fatal — a failure on either channel never blocks the
     // incident record from being saved or the Pusher broadcast from firing.
-    public function notifyEmergencyContact(Incident $incident): void
+    /**
+     * @param bool $sendSms   Text the rider's emergency contact (Semaphore).
+     * @param bool $makeCall  Ring the TOC hotline (Twilio TTS).
+     *
+     * Both default to true, so a real crash is unaffected and every existing
+     * caller keeps the behaviour it had. They exist for the TOC's
+     * demonstration tool: an SMS costs Semaphore credits and a call costs
+     * Twilio balance, and a rehearsal usually wants one without the other.
+     */
+    public function notifyEmergencyContact(
+        Incident $incident,
+        bool $sendSms = true,
+        bool $makeCall = true
+    ): void
     {
+        if (! $sendSms && ! $makeCall) {
+            return;
+        }
+
         $incident->loadMissing('rider.emergencyContacts');
 
         // Resolved once and shared by both channels. Persisted back onto the
@@ -49,7 +66,7 @@ class EmergencyNotificationService
         // straight out of here and took the caller's request with it. Wrapping
         // them separately also means a dead SMS gateway no longer prevents the
         // TOC hotline from ringing — previously the first throw stopped both.
-        $contact = $incident->rider?->emergencyContacts->first();
+        $contact = $sendSms ? $incident->rider?->emergencyContacts->first() : null;
         if ($contact) {
             try {
                 $this->sms->send($contact->phone_number, $this->buildSmsMessage($incident, $place));
@@ -61,7 +78,7 @@ class EmergencyNotificationService
         }
 
         // Twilio AI voice call to TOC hotline
-        $tocNumber = config('services.twilio.toc_number');
+        $tocNumber = $makeCall ? config('services.twilio.toc_number') : null;
         if ($tocNumber) {
             try {
             // Stored so the Call Recordings page can say which crash each

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Patrol\LoginRequest;
 use App\Http\Requests\Patrol\UpdateLocationRequest;
 use App\Models\PatrolUnit;
+use App\Support\PatrolAlertSchema;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -44,9 +45,61 @@ class PatrolAuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        $patrol = $request->user();
+
+        // Signing out of the app is going off shift as far as alerts are
+        // concerned. A unit mid-call keeps "dispatched" so the TOC board
+        // still shows who is on scene.
+        $patrol->update(array_merge(
+            ['status' => $patrol->status === 'dispatched' ? 'dispatched' : 'off_duty'],
+            PatrolAlertSchema::ready() ? ['on_duty' => false] : [],
+        ));
+
+        $patrol->currentAccessToken()->delete();
 
         return $this->apiResponse(true, 'Logged out successfully');
+    }
+
+    /**
+     * The officer's own on/off-duty switch. Only an on-duty unit can be
+     * alerted as the nearest to a crash, so this is what stops an officer who
+     * has gone home, but left the app open, from being called out.
+     */
+    public function updateDuty(Request $request): JsonResponse
+    {
+        $data   = $request->validate(['on_duty' => ['required', 'boolean']]);
+        $patrol = $request->user();
+
+        if (! PatrolAlertSchema::ready()) {
+            return $this->apiResponse(false,
+                'Duty status is not available yet. Ask the TOC to update the server.', null, 503);
+        }
+
+        $patrol->on_duty = (bool) $data['on_duty'];
+
+        // A unit mid-call stays "dispatched" either way, and drops back to the
+        // matching idle status when the call is closed.
+        if ($patrol->status !== 'dispatched') {
+            $patrol->status = $patrol->idleStatus();
+        }
+
+        $patrol->save();
+
+        try {
+            broadcast(new PatrolLocationUpdated($patrol));
+        } catch (\Throwable $e) {
+            Log::warning('Pusher broadcast failed (PatrolLocationUpdated/duty)', ['error' => $e->getMessage()]);
+        }
+
+        return $this->apiResponse(true, $patrol->on_duty
+            ? 'On duty. You can be alerted to nearby crashes.'
+            : 'Off duty. You will not be alerted to crashes.', $this->dutyState($patrol));
+    }
+
+    /** @return array{on_duty: bool, status: string} */
+    private function dutyState(PatrolUnit $patrol): array
+    {
+        return ['on_duty' => (bool) $patrol->on_duty, 'status' => (string) $patrol->status];
     }
 
     public function updateLocation(UpdateLocationRequest $request): JsonResponse
@@ -70,7 +123,10 @@ class PatrolAuthController extends Controller
             Log::warning('Pusher broadcast failed (PatrolLocationUpdated)', ['error' => $e->getMessage()]);
         }
 
-        return $this->apiResponse(true, 'Location updated');
+        // The duty state rides back on every check-in, so the app's switch
+        // corrects itself within one tick if it was changed elsewhere — by
+        // the TOC deactivating the officer, or by the officer on another phone.
+        return $this->apiResponse(true, 'Location updated', $this->dutyState($patrol));
     }
 
     public function updateFcmToken(Request $request): JsonResponse

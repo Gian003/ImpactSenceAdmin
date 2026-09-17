@@ -122,6 +122,21 @@ class IncidentController extends Controller
         ]);
 
         $patrol  = $request->user();
+
+        // Another unit already has this call. Once more than one officer can
+        // be alerted to the same crash, two can press "on my way" seconds
+        // apart; the second used to be marked as responding too, to a call
+        // that was never theirs. The TOC reassigns from the dashboard, which
+        // changes patrol_unit_id first, so a legitimate handover still works.
+        if ($incident->patrol_unit_id !== null && $incident->patrol_unit_id !== $patrol->id) {
+            $incident->loadMissing('patrolUnit:id,full_name');
+
+            return $this->apiResponse(false, sprintf(
+                'Already taken by %s. The TOC can reassign it if needed.',
+                $incident->patrolUnit?->full_name ?? 'another unit',
+            ), null, 409);
+        }
+
         $updates = ['status' => $data['status']];
 
         // Claiming the incident. "arrived" can legitimately be the first
@@ -179,12 +194,14 @@ class IncidentController extends Controller
         // responding to — this previously never changed after being set to
         // "off_duty" at registration approval, so Stand By / In Action (and
         // the TOC map marker color) never reflected reality.
-        // A unit on scene is still responding, so it stays "dispatched" here —
-        // only closing the incident puts them back off duty.
+        // A unit on scene is still responding, so it stays "dispatched" here.
+        // Closing the incident returns them to available if they are still on
+        // shift — it used to be off_duty unconditionally, which took every
+        // officer out of the pool after their first call.
         if (in_array($data['status'], ['dispatched', 'arrived'], true)) {
             $patrol->update(['status' => 'dispatched']);
         } elseif (in_array($data['status'], ['resolved', 'false_alarm'], true)) {
-            $patrol->update(['status' => 'off_duty']);
+            $patrol->update(['status' => $patrol->idleStatus()]);
         }
 
         try {
@@ -253,8 +270,25 @@ class IncidentController extends Controller
             return $this->apiResponse(false, 'This incident can no longer be cancelled.', null, 422);
         }
 
+        $statusFrom = $incident->status;
+
         $incident->update(['status' => 'false_alarm']);
         $incident->load(['rider', 'patrolUnit']);
+
+        // The one status-changing path that recorded nothing. Four incidents
+        // reached false_alarm through here with no entry saying who cancelled
+        // them or when, so their history read "reported" and then stopped —
+        // the exact silence the event log exists to prevent.
+        \App\Models\IncidentEvent::record(
+            $incident,
+            \App\Models\IncidentEvent::CANCELLED,
+            [
+                'status_from' => $statusFrom,
+                'status_to'   => 'false_alarm',
+                'payload'     => ['source' => 'rider app'],
+            ],
+            $request->user(),
+        );
 
         try {
             broadcast(new IncidentStatusUpdated($incident));

@@ -14,8 +14,8 @@
                     TOC Officers
                     <span style="color:#64748b; font-size:.8rem; font-weight:400;">({{ $tocOfficers->count() }})</span>
                 </div>
-                <a href="{{ route('admin.invitations.index') }}"
-                   style="font-size:.8rem; color:#3b82f6; text-decoration:none;">
+                <a href="{{ route('admin.invitations.index') }}" class="link-maroon"
+                   style="font-size:.8rem;">
                     + Invite TOC Officer
                 </a>
             </div>
@@ -51,7 +51,9 @@
                                     <button type="submit"
                                             class="btn btn-sm {{ $officer->deleted_at ? 'btn-outline-success' : 'btn-outline-danger' }}"
                                             style="font-size:.75rem; padding:3px 10px;"
-                                            onclick="return confirm('Are you sure?')">
+                                            data-confirm="{{ $officer->deleted_at
+                                                ? 'Reactivate ' . $officer->full_name . '? They will be able to sign in again.'
+                                                : 'Deactivate ' . $officer->full_name . '? They will be signed out and unable to sign in.' }}">
                                         {{ $officer->deleted_at ? 'Reactivate' : 'Deactivate' }}
                                     </button>
                                 </form>
@@ -79,8 +81,8 @@
                     Investigation Officers
                     <span style="color:#64748b; font-size:.8rem; font-weight:400;">({{ $invOfficers->count() }})</span>
                 </div>
-                <a href="{{ route('admin.invitations.index') }}"
-                   style="font-size:.8rem; color:#3b82f6; text-decoration:none;">
+                <a href="{{ route('admin.invitations.index') }}" class="link-maroon"
+                   style="font-size:.8rem;">
                     + Invite Investigation Officer
                 </a>
             </div>
@@ -116,7 +118,9 @@
                                     <button type="submit"
                                             class="btn btn-sm {{ $officer->deleted_at ? 'btn-outline-success' : 'btn-outline-danger' }}"
                                             style="font-size:.75rem; padding:3px 10px;"
-                                            onclick="return confirm('Are you sure?')">
+                                            data-confirm="{{ $officer->deleted_at
+                                                ? 'Reactivate ' . $officer->full_name . '? They will be able to sign in again.'
+                                                : 'Deactivate ' . $officer->full_name . '? They will be signed out and unable to sign in.' }}">
                                         {{ $officer->deleted_at ? 'Reactivate' : 'Deactivate' }}
                                     </button>
                                 </form>
@@ -137,3 +141,20 @@
 </div>
 
 @endsection
+
+@push('scripts')
+<script>
+    // One delegated listener for every confirm on the page. Reading the message
+    // from a data attribute keeps it out of JavaScript source entirely, so an
+    // officer named O'Brien cannot break the button that deactivates them.
+    document.addEventListener('click', function (e) {
+        const el = e.target.closest('[data-confirm]');
+        if (!el) return;
+        if (!window.confirm(el.dataset.confirm)) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+    });
+</script>
+@endpush
+

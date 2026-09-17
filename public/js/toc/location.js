@@ -5,13 +5,19 @@
 // Blade file right before this one loads).
 
 // Panel/legend toggling is defined at top level — independent of
-        // initMap() below — so the Speed Reports and Patrollers tabs work even
+        // initMap() below — so the Accident Prone and Patrollers tabs work even
         // if Google Maps fails to load (bad/restricted API key, no network,
-        // quota exceeded). Only the Accident Prone Area heatmap actually needs
-        // the map object, and degrades gracefully (sub-legend still shows,
-        // heatmap layer just won't render) if `heatmap` never gets assigned.
+        // quota exceeded). Only the Accident Prone Area overlay actually needs
+        // the map object, and degrades gracefully (sub-legend still shows, the
+        // areas just won't be drawn) if `proneCircles` stays empty.
         let map = null;
-        let heatmap = null;
+        // Was a google.maps.visualization.HeatmapLayer. Google REMOVED that
+        // class in Maps JavaScript API v3.65 — its constructor now throws
+        // unconditionally ("The Heatmap Layer functionality ... is no longer
+        // available"), so the layer silently never existed and the Accident
+        // Prone Area button drew nothing at all. Replaced with circles built
+        // from the same ranked areas the side panel lists.
+        let proneCircles = [];
         let trafficLayer = null;
         let trafficOn = false;
         let satelliteOn = false;
@@ -161,14 +167,69 @@
             });
         };
 
+        // ── Alert overlay: count + collapse ─────────────────────────────
+        // The count is derived from the cards actually in the DOM rather than
+        // incremented and decremented alongside them. Cards are added and
+        // removed from four different places (server render, live report,
+        // resolve, false alarm); a counter maintained by hand drifts the first
+        // time one of those paths is missed, and a wrong alert count on a
+        // dispatch board is worse than none.
+        (function () {
+            const panel  = document.getElementById('alertsPanel');
+            const toggle = document.getElementById('alertsPanelToggle');
+            const body   = document.getElementById('alertsPanelBody');
+            const countEl = document.getElementById('alertsCount');
+            const row    = document.getElementById('incident-cards-row');
+            if (!panel || !toggle || !body || !row) return;
+
+            function refreshCount() {
+                const n = row.querySelectorAll('[data-incident-id]').length;
+                if (countEl) countEl.textContent = String(n);
+                panel.classList.toggle('has-alerts', n > 0);
+            }
+
+            new MutationObserver(refreshCount).observe(row, { childList: true });
+            refreshCount();
+
+            function setCollapsed(collapsed) {
+                panel.classList.toggle('collapsed', collapsed);
+                body.hidden = collapsed;
+                toggle.setAttribute('aria-expanded', String(!collapsed));
+                toggle.title = collapsed
+                    ? 'Show the active alert cards'
+                    : 'Collapse the alert cards and clear the map';
+            }
+
+            let collapsed = false;
+            try {
+                collapsed = window.localStorage.getItem('alertsPanelCollapsed') === 'true';
+            } catch (e) { /* private mode — starts expanded */ }
+            setCollapsed(collapsed);
+
+            toggle.addEventListener('click', function () {
+                collapsed = !collapsed;
+                setCollapsed(collapsed);
+                try {
+                    window.localStorage.setItem('alertsPanelCollapsed', String(collapsed));
+                } catch (e) { /* ignore */ }
+            });
+
+            // A new emergency is not the moment to leave the cards hidden
+            // behind a chevron the operator collapsed an hour ago.
+            window.expandAlertsPanel = function () {
+                if (!collapsed) return;
+                collapsed = false;
+                setCollapsed(false);
+                try { window.localStorage.setItem('alertsPanelCollapsed', 'false'); } catch (e) {}
+            };
+        })();
+
         window.togglePanel = function(panel) {
             const els = {
-                speed: document.getElementById('speedPanel'),
                 patrollers: document.getElementById('patrollersPanel'),
                 prone: document.getElementById('pronePanel')
             };
             const btns = {
-                speed: document.getElementById('btnSpeed'),
                 prone: document.getElementById('btnProne'),
                 patrollers: document.getElementById('btnPatrollers')
             };
@@ -180,20 +241,26 @@
             Object.values(els).forEach(e => e.classList.remove('show'));
             Object.values(btns).forEach(b => b.classList.remove('active'));
             proneSub.classList.remove('show');
-            if (heatmap) heatmap.setMap(null);
+            setProneAreasVisible(false);
             activePanel = null;
+
+            // The Speed / Prone / Patrollers panels are anchored to the bottom
+            // of the same map the alert overlay sits on top of. Without this the
+            // two overlap on a short viewport; the class caps the alert rail's
+            // height instead of letting either one win by z-index.
+            const wrap = document.querySelector('.map-wrap');
+            if (wrap) wrap.classList.toggle('panel-open', !closing);
 
             if (closing) return;
 
             // Activate chosen panel
             activePanel = panel;
             btns[panel].classList.add('active');
-            if (panel === 'speed') els.speed.classList.add('show');
             if (panel === 'patrollers') els.patrollers.classList.add('show');
             if (panel === 'prone') {
                 proneSub.classList.add('show');
                 els.prone.classList.add('show');
-                if (heatmap) heatmap.setMap(map);
+                setProneAreasVisible(true);
             }
         };
 
@@ -322,7 +389,7 @@
                 mapTypeControl: false,
                 streetViewControl: true, // lets an operator drop the pegman onto a street for ground-level context before dispatching
                 fullscreenControl: false,
-                // Same declutter as the speed-zones picker map — POI/transit icons
+                // Decluttered: POI/transit icons
                 // (restaurants, bus stops, etc.) just compete for attention with the
                 // accident and patrol markers this map actually exists to show.
                 styles: [{
@@ -800,20 +867,105 @@
                     .bind('patrol.location_updated', handlePatrolUpdate);
             }
 
-            // Accident-prone heatmap, weighted by real historical incident coordinates
-            // (shown when "Accident Prone Area" is toggled)
-            const incidentCoords = window.LocationTrackingConfig.allIncidentCoords;
-            const heatmapPoints = incidentCoords
-                .map(i => {
-                    const lat = parseFloat(i.latitude);
-                    const lng = parseFloat(i.longitude);
-                    return (isNaN(lat) || isNaN(lng)) ? null : new google.maps.LatLng(lat, lng);
-                })
-                .filter(Boolean);
+            buildProneAreas();
+        }
 
-            heatmap = new google.maps.visualization.HeatmapLayer({
-                data: heatmapPoints,
-                radius: 40,
+        // ── Accident Prone Areas ───────────────────────────────────────────
+        //
+        // Drawn from window.LocationTrackingConfig.incidentHotspots — the same
+        // ten ranked areas the side panel tabulates, so the map and the panel
+        // can never disagree. Colours are the High / Average / Low swatches
+        // already printed in the panel's sub-legend.
+        const PRONE_TIER_COLORS = {
+            high:    '#e53e3e',
+            average: '#dd6b20',
+            low:     '#d69e2e',
+        };
+
+        // The server groups incidents with ROUND(latitude, 3), which is a grid
+        // cell of roughly 111 m. That is the real extent of an "area", so it is
+        // the floor for a circle's radius — a circle on a map is read as
+        // covering ground, and inflating it to show magnitude would be drawing
+        // a claim about where accidents happened that the data does not make.
+        // Magnitude is carried by colour and fill instead.
+        const PRONE_CELL_METERS = 111;
+
+        // At city zoom a 111 m circle is about eight pixels across — accurate
+        // and useless. This keeps every area at least MIN_PX wide on screen by
+        // growing the radius only as far as the zoom requires, and shrinking it
+        // back to the true cell size as the operator zooms in.
+        const PRONE_MIN_PX = 15;
+
+        function proneRadiusMeters(lat) {
+            if (!map) return PRONE_CELL_METERS;
+            const zoom = map.getZoom();
+            if (typeof zoom !== 'number') return PRONE_CELL_METERS;
+            // Web-Mercator ground resolution at this zoom and latitude.
+            const metersPerPx = 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
+            return Math.max(PRONE_CELL_METERS, PRONE_MIN_PX * metersPerPx);
+        }
+
+        function buildProneAreas() {
+            const hotspots = (window.LocationTrackingConfig.incidentHotspots) || [];
+
+            hotspots.forEach(function (h) {
+                const lat = parseFloat(h.lat_group);
+                const lng = parseFloat(h.lng_group);
+                if (isNaN(lat) || isNaN(lng)) return;
+
+                const count  = parseInt(h.incident_count, 10) || 0;
+                const severe = parseInt(h.severe_count, 10) || 0;
+                const tier   = h.tier || 'low';
+                const color  = PRONE_TIER_COLORS[tier] || PRONE_TIER_COLORS.low;
+
+                const circle = new google.maps.Circle({
+                    center: { lat, lng },
+                    radius: proneRadiusMeters(lat),
+                    strokeColor: color,
+                    strokeOpacity: 0.9,
+                    strokeWeight: tier === 'high' ? 2.5 : 1.5,
+                    fillColor: color,
+                    // Graded so overlapping areas still read individually, and
+                    // so the busiest cell is the one the eye lands on.
+                    fillOpacity: tier === 'high' ? 0.42 : (tier === 'average' ? 0.32 : 0.22),
+                    clickable: true,
+                    zIndex: tier === 'high' ? 3 : (tier === 'average' ? 2 : 1),
+                });
+
+                circle.addListener('click', function (e) {
+                    if (!infoWindow) return;
+                    infoWindow.setContent(
+                        '<div style="font-size:.86rem; line-height:1.45; min-width:180px;">'
+                        + '<div style="font-weight:700; color:#7B1A2E; margin-bottom:4px;">Accident Prone Area</div>'
+                        + '<div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">'
+                        + '<span style="width:10px; height:10px; border-radius:50%; background:'
+                        + color + '; display:inline-block;"></span>'
+                        + '<span style="text-transform:capitalize; font-weight:600;">' + tier + ' density</span>'
+                        + '</div>'
+                        + '<div><strong>' + count + '</strong> incident' + (count === 1 ? '' : 's') + ' recorded</div>'
+                        + '<div><strong>' + severe + '</strong> high or critical</div>'
+                        + '<div style="color:#64748b; margin-top:4px;">'
+                        + lat.toFixed(3) + '°N, ' + lng.toFixed(3) + '°E</div>'
+                        + '</div>'
+                    );
+                    infoWindow.setPosition(e.latLng);
+                    infoWindow.open(map);
+                });
+
+                proneCircles.push({ circle, lat });
+            });
+
+            // Keep the on-screen size honest as the operator zooms.
+            map.addListener('zoom_changed', function () {
+                proneCircles.forEach(function (c) {
+                    c.circle.setRadius(proneRadiusMeters(c.lat));
+                });
+            });
+        }
+
+        function setProneAreasVisible(show) {
+            proneCircles.forEach(function (c) {
+                c.circle.setMap(show ? map : null);
             });
         }
     
@@ -824,29 +976,19 @@
         (function() {
             if (!window.pusherClient) return;
 
-            // Web Audio API alert tone — three short beeps to grab the operator's attention.
-            function playAlertTone() {
-                try {
-                    const ctx = new(window.AudioContext || window.webkitAudioContext)();
-                    [0, 0.25, 0.5].forEach(function(delay) {
-                        const osc = ctx.createOscillator();
-                        const gain = ctx.createGain();
-                        osc.connect(gain);
-                        gain.connect(ctx.destination);
-                        osc.type = 'square';
-                        osc.frequency.value = 880;
-                        gain.gain.setValueAtTime(0.3, ctx.currentTime + delay);
-                        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
-                        osc.start(ctx.currentTime + delay);
-                        osc.stop(ctx.currentTime + delay + 0.18);
-                    });
-                } catch (e) {}
-            }
+            // The incident alert sound lives in the TOC layout
+            // (resources/views/toc/layouts/app.blade.php), not here. Both this
+            // file and the layout bind incident.reported on the same Pusher
+            // channel, so a tone played from here would be a second sound on
+            // top of the layout's — and the layout already owns the mute
+            // toggle and volume slider in the top bar.
 
             function addIncidentCard(data) {
                 const row = document.getElementById('incident-cards-row');
                 const banner = document.getElementById('no-incidents-banner');
                 if (!row) return;
+
+                if (typeof window.expandAlertsPanel === 'function') window.expandAlertsPanel();
 
                 banner.style.display = 'none';
                 row.style.display = '';
@@ -870,7 +1012,9 @@
                 const [sevColor, sevBg] = severityStyle(data.severity);
 
                 const col = document.createElement('div');
-                col.className = 'col-md-6';
+                // Matches the server-rendered cards — the alert panel is a
+                // narrow overlay rail now, not a full-width strip.
+                col.className = 'col-12';
                 col.dataset.incidentId = data.id;
                 col.dataset.severity = data.severity ?? '';
                 col.dataset.reportedAt = data.reported_at ?? new Date().toISOString();
@@ -1067,7 +1211,7 @@
 
             window.pusherClient.subscribe('incidents')
                 .bind('incident.reported', function(data) {
-                    playAlertTone();
+                    // No sound here — see the note by addIncidentCard.
                     addIncidentCard(data);
                 })
                 .bind('incident.status_updated', updateIncidentStatus);

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Device;
-use App\Models\SpeedReport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -86,18 +85,13 @@ class RiderDeviceController extends Controller
         return $this->apiResponse(true, 'Device unpaired');
     }
 
-    // IoT device: push battery level + active status, piggybacking the same
-    // heartbeat with an optional GPS speed sample (lets Speed Reports per Area
-    // aggregate real data without a second periodic call from the device).
+    // IoT device: push battery level + active status.
     public function updateStatus(Request $request): JsonResponse
     {
         $data = $request->validate([
             'device_code'   => ['required', 'string'],
             'battery_level' => ['required', 'integer', 'between:0,100'],
             'is_active'     => ['sometimes', 'boolean'],
-            'latitude'      => ['sometimes', 'numeric', 'between:-90,90'],
-            'longitude'     => ['sometimes', 'numeric', 'between:-180,180'],
-            'speed_kph'     => ['sometimes', 'integer', 'min:0'],
         ]);
 
         $device = Device::where('device_code', $data['device_code'])->first();
@@ -107,15 +101,6 @@ class RiderDeviceController extends Controller
         }
 
         $device->update($request->only('battery_level', 'is_active'));
-
-        if (isset($data['latitude'], $data['longitude'], $data['speed_kph'])) {
-            SpeedReport::create([
-                'device_id'  => $device->id,
-                'latitude'   => $data['latitude'],
-                'longitude'  => $data['longitude'],
-                'speed_kph'  => $data['speed_kph'],
-            ]);
-        }
 
         return $this->apiResponse(true, 'Status updated', $device->fresh());
     }

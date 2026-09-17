@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 // ── PUBLIC ────────────────────────────────────────────────────────────────────
 Route::get('/', function () {
@@ -193,34 +195,14 @@ Route::prefix('toc')
                 default    => 0,
             };
 
-            // Speed Reports per Area — compares each police-defined speed
-            // zone's posted limit against real observed GPS speed samples
-            // that fall within it. The aggregation lives in
-            // SpeedZone::statsFor() — it used to load the whole speed_reports
-            // table into memory here and run a PHP haversine per sample per
-            // zone, which is fine at zero rows and falls over at real volume
-            // on what is also the live dispatch board.
-            $zones = \App\Models\SpeedZone::all();
-            $stats = \App\Models\SpeedZone::statsFor($zones);
-
-            $speedZoneStats = $zones->map(function ($zone) use ($stats) {
-                $stat = $stats[$zone->id];
-
-                return (object) [
-                    'id'               => $zone->id,
-                    'name'             => $zone->name,
-                    'speed_limit_kph'  => $zone->speed_limit_kph,
-                    'sample_count'     => $stat->sample_count,
-                    'avg_speed'        => $stat->avg_speed,
-                    'percentile_speed' => $stat->percentile_speed,
-                    'violation_rate'   => $stat->violation_rate,
-                    'is_violating'     => $stat->is_violating,
-                ];
-            })->sortByDesc(fn ($z) => $z->is_violating ? 1 : 0)->values();
 
             // Accident Prone Area — real incidents ranked by density, grouped
-            // into ~111m grid cells (as opposed to the heatmap below, which
-            // plots every individual point rather than ranking areas).
+            // into ~111m grid cells. This is now the only source for the
+            // feature: the map draws a circle per area from exactly these rows,
+            // and the side panel tabulates them, so the two cannot disagree.
+            // (It used to feed only the panel, while the map ran a Google
+            // heatmap over every raw coordinate — until Google removed the
+            // Heatmap Layer in Maps JavaScript API v3.65 and it drew nothing.)
             $incidentHotspots = \Illuminate\Support\Facades\DB::table('incidents')
                 ->whereNotNull('latitude')
                 ->whereNotNull('longitude')
@@ -279,13 +261,6 @@ Route::prefix('toc')
                     ->where('created_at', '<', now()->subHours($liveWindowHours))
                     ->count(),
                 'patrollers' => PatrolUnit::all(),
-                // All historical incident coordinates, used to plot the
-                // accident-prone-area heatmap (as opposed to $pendingIncidents,
-                // which only covers what's currently active).
-                'allIncidentCoords' => Incident::whereNotNull('latitude')
-                    ->whereNotNull('longitude')
-                    ->get(['latitude', 'longitude']),
-                'speedZoneStats'    => $speedZoneStats,
                 'incidentHotspots'  => $incidentHotspots,
             ]);
         })->name('location.tracking');
@@ -462,197 +437,6 @@ Route::prefix('toc')
             ]);
         })->name('incidents.show');
 
-        // ── Speed zones — police-maintained posted speed limits ────────────────
-
-        // Shared by store and update so the two can't validate differently.
-        $speedZoneRules = [
-            'name'             => ['required', 'string', 'max:255'],
-            // The road centreline, drawn on the map. A single point is still
-            // valid and behaves as the circle zones used to.
-            'path'             => ['required', 'array', 'min:1', 'max:200'],
-            'path.*.lat'       => ['required', 'numeric', 'between:-90,90'],
-            'path.*.lng'       => ['required', 'numeric', 'between:-180,180'],
-            // Half-width of the corridor, not a circle radius. Capped tighter
-            // than before: 500 m either side of a centreline is already far
-            // wider than any carriageway, and the old 5 km ceiling only made
-            // sense when a zone was a blob covering a district.
-            'radius_meters'    => ['required', 'integer', 'min:5', 'max:500'],
-            'speed_limit_kph'  => ['required', 'integer', 'min:1', 'max:200'],
-            'allow_overlap'    => ['sometimes', 'boolean'],
-        ];
-
-        // A hidden input can only carry a string, so the traced path arrives as
-        // JSON text and has to become an array before the array rules above
-        // can look at it. Without this every save failed with "The path field
-        // must be an array" — the rules were right, the form simply cannot
-        // send what they wanted.
-        $speedZoneNormalise = function (Request $request): void {
-            $path = $request->input('path');
-
-            if (! is_string($path)) {
-                return;   // already an array (an API client, or a test)
-            }
-
-            $decoded = json_decode($path, true);
-
-            // A malformed or empty value becomes an empty array rather than
-            // null, so it fails the "required" rule with a message about
-            // tracing the road instead of a JSON parse error.
-            $request->merge([
-                'path' => is_array($decoded) ? $decoded : [],
-            ]);
-        };
-
-        // Phrased for whoever is drawing the zone, not for whoever wrote the
-        // validation rules.
-        $speedZoneMessages = [
-            'path.required' => 'Trace the road on the map before saving — press "Trace road", then click along it.',
-            'path.array'    => 'The traced road could not be read. Press "Clear" and trace it again.',
-            'path.min'      => 'Trace the road on the map before saving — press "Trace road", then click along it.',
-            'path.max'      => 'That corridor has too many points. Trace it with fewer clicks, or split it into two zones.',
-            'path.*.lat.required'  => 'One of the traced points is missing its latitude. Press "Clear" and trace it again.',
-            'path.*.lng.required'  => 'One of the traced points is missing its longitude. Press "Clear" and trace it again.',
-            'radius_meters.min' => 'A corridor needs at least a 5 m half-width.',
-            'radius_meters.max' => 'A corridor half-width above 500 m is wider than any carriageway — use a smaller number.',
-        ];
-
-        // latitude/longitude stay on the row as the corridor's midpoint —
-        // every map that plots a zone as a single marker still has somewhere
-        // to put it, and nothing downstream had to learn about paths.
-        $speedZoneAttributes = function (array $data): array {
-            $path = array_values(array_map(
-                fn ($p) => ['lat' => (float) $p['lat'], 'lng' => (float) $p['lng']],
-                $data['path']
-            ));
-
-            $mid = $path[intdiv(count($path), 2)];
-
-            return [
-                'name'            => $data['name'],
-                'path'            => $path,
-                'latitude'        => $mid['lat'],
-                'longitude'       => $mid['lng'],
-                'radius_meters'   => $data['radius_meters'],
-                'speed_limit_kph' => $data['speed_limit_kph'],
-            ];
-        };
-
-        // Refuses a zone that overlaps an existing one, unless the operator
-        // has deliberately allowed it. Blocking by default because the damage
-        // is silent: a sample inside the shared area is counted toward both
-        // zones' averages, and a flagged street gives no clue which posted
-        // limit the reading was judged against. The escape hatch exists for
-        // the legitimate case of a small zone deliberately sitting inside a
-        // larger stretch.
-        $speedZoneOverlap = function (Request $request, array $data, ?int $ignoreId) {
-            if ($request->boolean('allow_overlap')) {
-                return null;
-            }
-
-            $path = array_map(
-                fn ($p) => ['lat' => (float) $p['lat'], 'lng' => (float) $p['lng']],
-                $data['path']
-            );
-
-            $clash = \App\Models\SpeedZone::overlapping(
-                $path,
-                (int) $data['radius_meters'],
-                $ignoreId,
-            );
-
-            if (! $clash) {
-                return null;
-            }
-
-            $candidate = new \App\Models\SpeedZone([
-                'path'          => $path,
-                'radius_meters' => (int) $data['radius_meters'],
-            ]);
-            $metres = (int) round($candidate->distanceToZoneMeters($clash));
-
-            return back()->withInput()->withErrors([
-                'path' => "This corridor comes within {$metres} m of \"{$clash->name}\", which has a "
-                    . "{$clash->radius_meters} m half-width — closer than the {$data['radius_meters']} m "
-                    . "+ {$clash->radius_meters} m needed to keep them apart. Samples in the shared "
-                    . "stretch would count toward both zones. Redraw it, narrow the corridor, or tick "
-                    . "\"allow overlap\" if the two genuinely share road.",
-            ]);
-        };
-        Route::get('/speed-zones', function () {
-            $zones = \App\Models\SpeedZone::with('creator')->latest()->get();
-
-            return view('toc.speed-zones.index', [
-                'zones'          => $zones,
-                'speedZoneStats' => \App\Models\SpeedZone::statsFor($zones),
-                'windowDays'     => \App\Models\SpeedZone::WINDOW_DAYS,
-                'percentile'     => \App\Models\SpeedZone::PERCENTILE,
-                // Whether anything is actually feeding the table. An empty
-                // comparison reads as broken unless the page says why.
-                'totalSamples'   => \App\Models\SpeedReport::count(),
-                // Edit reuses the add form — same fields, same map picker —
-                // rather than a second form that would drift out of step
-                // with it. ?edit={id} switches it into update mode.
-                'editing'        => $editingZone = request()->filled('edit')
-                    ? $zones->firstWhere('id', (int) request('edit'))
-                    : null,
-                // Shapes for the map picker. Built here rather than in a Blade
-                // loop so the view ships one JSON blob instead of generating
-                // JavaScript per zone.
-                'zoneOverlays'   => $zones->map(fn ($z) => [
-                    'name'    => $z->name,
-                    'path'    => collect($z->pathPoints())
-                        ->map(fn ($pt) => ['lat' => $pt[0], 'lng' => $pt[1]])->all(),
-                    'radius'  => $z->radius_meters,
-                    'editing' => $editingZone !== null && $editingZone->id === $z->id,
-                ])->values(),
-            ]);
-        })->name('speed-zones.index');
-
-        Route::post('/speed-zones', function (Request $request) use (
-            $speedZoneRules, $speedZoneOverlap, $speedZoneAttributes,
-            $speedZoneNormalise, $speedZoneMessages
-        ) {
-            $speedZoneNormalise($request);
-            $data = $request->validate($speedZoneRules, $speedZoneMessages);
-
-            if ($clash = $speedZoneOverlap($request, $data, null)) {
-                return $clash;
-            }
-
-            \App\Models\SpeedZone::create(
-                $speedZoneAttributes($data) + ['created_by' => Auth::guard('toc')->id()]
-            );
-
-            return back()->with('success', "Speed zone \"{$data['name']}\" added.");
-        })->name('speed-zones.store');
-
-        // Zones were previously add-and-delete only, so correcting a mistyped
-        // radius meant destroying the row and losing who created it and when.
-        Route::put('/speed-zones/{speedZone}', function (
-            Request $request, \App\Models\SpeedZone $speedZone
-        ) use (
-            $speedZoneRules, $speedZoneOverlap, $speedZoneAttributes,
-            $speedZoneNormalise, $speedZoneMessages
-        ) {
-            $speedZoneNormalise($request);
-            $data = $request->validate($speedZoneRules, $speedZoneMessages);
-
-            if ($clash = $speedZoneOverlap($request, $data, $speedZone->id)) {
-                return $clash;
-            }
-
-            $speedZone->update($speedZoneAttributes($data));
-
-            return redirect()
-                ->route('toc.speed-zones.index')
-                ->with('success', "Speed zone \"{$speedZone->name}\" updated.");
-        })->name('speed-zones.update');
-
-        Route::delete('/speed-zones/{speedZone}', function (\App\Models\SpeedZone $speedZone) {
-            $speedZone->delete();
-            return back()->with('success', 'Speed zone removed.');
-        })->name('speed-zones.destroy');
-
         Route::post('/incidents/{incident}/dispatch', function (
             Request $request, Incident $incident
         ) {
@@ -760,6 +544,17 @@ Route::prefix('toc')
                 'trendRiders'     => $trend(User::where('role', 'rider')),
                 'trendDevices'    => $trend(Device::query()),
                 'trendIncidents'  => $trend(Incident::query()),
+
+                // Only devices with a rider can file anything — the API returns
+                // 422 for the rest. Offering an unpairable device in the demo
+                // dropdown would fail in front of the panel, which is the one
+                // audience this tool exists for.
+                'simulatableDevices' => Device::whereNotNull('rider_id')
+                    ->with('rider')
+                    ->orderBy('device_code')
+                    ->get(),
+
+                'simulationCount' => Incident::simulations()->count(),
             ]);
         })->name('devices.index');
 
@@ -776,6 +571,178 @@ Route::prefix('toc')
             return redirect()->route('toc.devices.index')
                 ->with('success', 'Device registered. Share the auto-generated pairing key with the rider.');
         })->name('devices.store');
+
+        // ── Demonstration ─────────────────────────────────────────────────
+        //
+        // Files a crash as though the physical helmet unit had sent it. This
+        // exists because a capstone defence cannot involve actually crashing a
+        // motorcycle, and a demo that only *describes* the dispatch chain
+        // proves nothing.
+        //
+        // It calls DeviceController::reportIncident directly rather than
+        // posting to /api/device/incident over HTTP. Same code path, so the
+        // drill proves the real one — but no self-request, which would need
+        // this machine to be able to reach its own public URL. On a laptop
+        // behind a projector at a defence, that is exactly the thing that
+        // fails.
+        Route::post('/devices/simulate', function (Request $request) {
+            $data = $request->validate([
+                'device_id' => ['required', 'exists:devices,id'],
+                'severity'  => ['required', Rule::in(['low', 'medium', 'high', 'critical'])],
+                'place'     => ['required', 'string', 'max:120'],
+                'latitude'  => ['required', 'numeric', 'between:-90,90'],
+                'longitude' => ['required', 'numeric', 'between:-180,180'],
+                // Each leg is its own choice. Bundled together, rehearsing
+                // the Twilio call meant also spending Semaphore credits and
+                // texting a real family member — so nobody rehearsed it.
+                'call_toc'  => ['nullable'],   // Twilio TTS to the hotline
+                'send_sms'  => ['nullable'],   // Semaphore to the emergency contact
+                'push_rider'=> ['nullable'],   // FCM to the rider's phone
+                'alert_patrol' => ['nullable'], // call + push the nearest on-duty unit
+            ], [
+                'device_id.required' => 'Choose which device is reporting the crash.',
+                'place.required'     => 'Give the location a name so the board reads sensibly.',
+            ]);
+
+            $device = Device::with('rider')->findOrFail($data['device_id']);
+
+            if (! $device->rider_id) {
+                return back()->withErrors([
+                    'device_id' => 'That device has no paired rider, so it cannot file an incident.',
+                ]);
+            }
+
+            $callToc     = $request->boolean('call_toc');
+            $sendSms     = $request->boolean('send_sms');
+            $pushRider   = $request->boolean('push_rider');
+            $alertPatrol = $request->boolean('alert_patrol');
+
+            $apiRequest = Request::create('/api/device/incident', 'POST', [
+                'device_code' => $device->device_code,
+                'latitude'    => $data['latitude'],
+                'longitude'   => $data['longitude'],
+                // The TOC typed these coordinates on purpose, so they are as
+                // confirmed as a satellite fix — and the nearest-patrol drill
+                // refuses to run on anything less.
+                'location_verified' => true,
+                'type'        => 'collision',
+                'severity'    => $data['severity'],
+                'address'     => Incident::SIMULATION_PREFIX . trim($data['place']),
+            ]);
+
+            // Always false here: the controller's own flag is all-or-nothing,
+            // and this tool needs to pick legs individually. It files the
+            // incident and broadcasts to the board; the notifications below
+            // are dispatched deliberately, exactly as the controller would.
+            $response = app(\App\Http\Controllers\Api\DeviceController::class)
+                ->reportIncident(
+                    $apiRequest,
+                    app(\App\Services\FcmService::class),
+                    app(\App\Services\EmergencyNotificationService::class),
+                    false,
+                );
+
+            $body = $response->getData(true);
+
+            if (($body['success'] ?? false) !== true) {
+                return back()->withErrors([
+                    'device_id' => $body['message'] ?? 'The device API refused the report.',
+                ]);
+            }
+
+            $incidentId = $body['data']['incident_id'] ?? null;
+            $incident   = $incidentId ? Incident::with('rider')->find($incidentId) : null;
+
+            // Dispatched here rather than inside the controller so each leg can
+            // be chosen. Guarded the same way the controller guards its own:
+            // on the sync connection a queued job runs inline and rethrows, and
+            // a Twilio hiccup must not turn a filed incident into a red error
+            // page in front of a panel.
+            $sent = [];
+            if ($incident) {
+                if ($pushRider && $incident->rider?->fcm_token) {
+                    try {
+                        \App\Jobs\SendPushNotification::dispatch(
+                            $incident->rider->fcm_token,
+                            'Crash Detected',
+                            'Your accident has been reported. Help is being contacted.',
+                            ['incident_id' => (string) $incident->id, 'type' => 'crash_detected'],
+                        );
+                        $sent[] = 'pushed to the rider';
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::error('Drill push failed', [
+                            'incident' => $incident->id, 'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+
+                if ($callToc || $sendSms) {
+                    try {
+                        \App\Jobs\NotifyEmergencyContacts::dispatch($incident, $sendSms, $callToc);
+                        if ($callToc) { $sent[] = 'called the TOC hotline'; }
+                        if ($sendSms) { $sent[] = 'texted the emergency contact'; }
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::error('Drill notification failed', [
+                            'incident' => $incident->id, 'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+
+                // Runs whether or not the feature is switched on for real
+                // crashes: rehearsing it is how PNP decides whether to switch
+                // it on. The alert says SIMULATION, since the address does.
+                if ($alertPatrol) {
+                    try {
+                        \App\Jobs\AlertNearestPatrol::start($incident);
+                        $sent[] = 'alerted the nearest on-duty patrol unit (see the timeline for who)';
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::error('Drill patrol alert failed', [
+                            'incident' => $incident->id, 'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            }
+
+            // Say in the record itself that this was staged, and by whom. The
+            // address prefix is for the board; this is for anyone reading the
+            // case file later and wondering why it was never attended.
+            if ($incidentId) {
+                $officer = auth('toc')->user();
+                Incident::whereKey($incidentId)->update([
+                    'notes' => 'Simulated crash staged from Device Management by '
+                        . ($officer->full_name ?? $officer->username ?? 'a TOC operator')
+                        . ' on ' . now()->format('d M Y, g:ia')
+                        . '. Not a real incident.',
+                ]);
+            }
+
+            return redirect()->route('toc.devices.index')->with(
+                'success',
+                'Simulated crash filed as incident #' . $incidentId . ' from '
+                . $device->device_code . '. It is on the live board now'
+                . ($sent ? ', and ImpactSense ' . implode(', ', $sent) . '.' : '.')
+            );
+        })->name('devices.simulate');
+
+        // Clears every drill in one action, so the board and the statistics go
+        // back to only real calls after a demonstration.
+        Route::delete('/devices/simulations', function () {
+            $ids = Incident::simulations()->pluck('id');
+
+            if ($ids->isEmpty()) {
+                return redirect()->route('toc.devices.index')
+                    ->with('success', 'There were no simulated incidents to remove.');
+            }
+
+            \App\Models\IncidentEvent::whereIn('incident_id', $ids)->delete();
+            Incident::whereIn('id', $ids)->delete();
+
+            return redirect()->route('toc.devices.index')->with(
+                'success',
+                'Removed ' . $ids->count() . ' simulated '
+                . Str::plural('incident', $ids->count()) . '. Real calls were untouched.'
+            );
+        })->name('devices.simulations.destroy');
 
         // Update device_code, model, or firmware on an existing device
         Route::patch('/devices/{device}', function (Request $request, Device $device) {
@@ -851,17 +818,40 @@ Route::prefix('toc')
         Route::post('/patrol-registrations/{registration}/reject', function (
             Request $request, \App\Models\PatrolRegistration $registration
         ) {
+            $reasons = \App\Models\PatrolRegistration::REJECTION_REASONS;
+            $other   = \App\Models\PatrolRegistration::REJECTION_OTHER;
+
+            // The dropdown is a convenience; this is the constraint. A reason
+            // must be one the station actually recognises, or an explicitly
+            // written one — never an arbitrary string that happens to arrive.
             $data = $request->validate([
-                'rejection_reason' => ['required', 'string', 'max:500'],
+                'rejection_reason' => ['required', 'string', Rule::in([...$reasons, $other])],
+                'rejection_reason_other' => [
+                    'required_if:rejection_reason,' . $other,
+                    'nullable', 'string', 'min:10', 'max:500',
+                ],
+            ], [
+                'rejection_reason.required' => 'Choose a reason for rejecting this registration.',
+                'rejection_reason.in'       => 'That is not a recognised rejection reason.',
+                'rejection_reason_other.required_if' =>
+                    'Write the reason for rejecting this registration.',
+                'rejection_reason_other.min' =>
+                    'Give the officer enough detail to understand what to correct.',
             ]);
 
             if ($registration->status !== 'pending') {
                 return back()->withErrors(['error' => 'Registration already reviewed.']);
             }
 
+            // What gets stored and sent to the applicant is the text itself,
+            // never the "other" sentinel.
+            $reason = $data['rejection_reason'] === $other
+                ? trim($data['rejection_reason_other'])
+                : $data['rejection_reason'];
+
             $registration->update([
                 'status'           => 'rejected',
-                'rejection_reason' => $data['rejection_reason'],
+                'rejection_reason' => $reason,
                 'reviewed_by'      => Auth::guard('toc')->id(),
                 'reviewed_at'      => now(),
             ]);
@@ -871,7 +861,7 @@ Route::prefix('toc')
                 app(\App\Services\FcmService::class)->sendToToken(
                     $registration->fcm_token,
                     'Registration Not Approved',
-                    'Reason: ' . $data['rejection_reason'],
+                    'Reason: ' . $reason,
                     ['type' => 'registration_rejected']
                 );
             }
@@ -952,7 +942,10 @@ Route::prefix('toc')
                     $unit->tokens()->delete();
                     // Don't leave them sitting on the dispatch board as though
                     // they were still available to take a call.
-                    $unit->update(['status' => 'off_duty']);
+                    $unit->update(array_merge(
+                        ['status' => 'off_duty'],
+                        \App\Support\PatrolAlertSchema::ready() ? ['on_duty' => false] : [],
+                    ));
                     $signedOut = true;
                 }
             }

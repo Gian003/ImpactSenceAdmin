@@ -73,7 +73,9 @@
                 Quick Access
             </div>
 
-            <a href="{{ route('toc.dashboard') }}" target="_blank"
+            {{-- rel="noopener" on every new-tab link: without it the opened
+                 page gets a handle on this one through window.opener. --}}
+            <a href="{{ route('toc.dashboard') }}" target="_blank" rel="noopener"
                class="nav-link">
                 <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
@@ -82,7 +84,7 @@
                 TOC Dashboard ↗
             </a>
 
-            <a href="{{ route('investigation.dashboard') }}" target="_blank"
+            <a href="{{ route('investigation.dashboard') }}" target="_blank" rel="noopener"
                class="nav-link">
                 <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="none"
                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
@@ -104,12 +106,29 @@
                         <circle cx="12" cy="7" r="4"/>
                     </svg>
                 </div>
-                <div class="text-white lh-sm" style="overflow:hidden;">
-                    <div style="font-size:.8rem; font-weight:600; letter-spacing:.03em;">
-                        {{ Auth::guard('admin')->user()->rank }}
+                {{-- min-width:0 lets the ellipsis actually apply: a flex item
+                     will not shrink below its content without it, so a long
+                     name pushed the block wider than the sidebar instead of
+                     truncating. Rank is optional, and an empty line left a
+                     visible gap above the name. --}}
+                @php
+                    $me       = Auth::guard('admin')->user();
+                    $myRank   = trim((string) $me->rank);
+                    // Names are stored assembled from parts and a missing part
+                    // leaves a literal "N/A" in the middle — same cleanup the
+                    // spoken crash alert uses.
+                    $myName   = \App\Models\User::cleanName($me->full_name);
+                @endphp
+                <div class="text-white lh-sm" style="overflow:hidden; min-width:0;">
+                    @if($myRank !== '')
+                    <div style="font-size:.8rem; font-weight:600; letter-spacing:.03em;
+                                white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                        {{ $myRank }}
                     </div>
-                    <div style="font-size:.7rem; opacity:.55; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                        {{ Auth::guard('admin')->user()->full_name }}
+                    @endif
+                    <div style="font-size:.7rem; opacity:.55; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"
+                         title="{{ $myName }}">
+                        {{ $myName !== '' ? $myName : 'Administrator' }}
                     </div>
                 </div>
             </div>
@@ -141,21 +160,40 @@
             </div>
         </div>
 
-        {{-- Flash messages --}}
+        {{-- Flash messages.
+
+             The wrapper used to render unconditionally, so every page carried
+             16px of empty padding above its heading whether or not there was
+             anything to say — a gap that read as a misaligned first row. --}}
+        @if(session('success') || $errors->any())
         <div class="px-4 pt-3">
             @if(session('success'))
-                <div class="alert alert-success alert-dismissible fade show py-2" role="alert">
+                <div class="alert alert-success alert-dismissible fade show py-2 mb-2" role="alert">
                     {{ session('success') }}
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             @endif
             @if($errors->any())
-                <div class="alert alert-danger alert-dismissible fade show py-2" role="alert">
-                    {{ $errors->first() }}
+                {{-- Every error, not just the first. A form rejected on three
+                     fields showed one message, the admin fixed it, resubmitted,
+                     and was told about the next one — three round trips for a
+                     single form. --}}
+                <div class="alert alert-danger alert-dismissible fade show py-2 mb-2" role="alert">
+                    @if($errors->count() === 1)
+                        {{ $errors->first() }}
+                    @else
+                        <div class="fw-semibold mb-1">Please correct the following:</div>
+                        <ul class="mb-0 ps-3">
+                            @foreach($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    @endif
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             @endif
         </div>
+        @endif
 
         {{-- Page content --}}
         <div class="flex-grow-1 p-4">

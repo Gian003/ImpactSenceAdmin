@@ -38,10 +38,12 @@
                     re-check the badge number itself.
                 </li>
                 <li>
-                    <strong>Compare the two photos.</strong> "Submitted Photo" was taken live with the
-                    applicant's camera at the moment they registered (not chosen from their gallery);
-                    "Roster Reference" is the photo on file for that badge number. Check that they're
-                    plausibly the same person before approving.
+                    <strong>Compare the two photos.</strong> "Submitted Photo" is the one the applicant
+                    sent; "Roster Reference" is the photo on file for that badge number. Check that they're
+                    plausibly the same person before approving. Each submitted photo is labelled
+                    <em>Taken with camera</em> or <em>Chosen from gallery</em>. A gallery photo could be
+                    old or someone else's, so look at it more carefully, and confirm the officer another
+                    way if you are unsure.
                 </li>
                 <li>
                     If <strong>Roster Reference</strong> shows "No reference photo on file," there's
@@ -128,6 +130,20 @@
                                         <img src="{{ asset('storage/' . $reg->photo_path) }}"
                                             alt="Submitted registration photo"
                                             style="width:100%; max-width:140px; aspect-ratio:1; object-fit:cover; border-radius:8px; border:1px solid #d1dde6;">
+                                        {{-- Where it came from. A gallery photo is not proof
+                                             the applicant was holding the phone, so it is
+                                             flagged in amber. --}}
+                                        @if ($reg->photoWasTakenLive())
+                                            <div style="margin-top:5px; font-size:.7rem; font-weight:600; color:#166534;">
+                                                Taken with camera
+                                            </div>
+                                        @else
+                                            <div style="margin-top:5px; display:inline-block; font-size:.7rem; font-weight:700;
+                                                        color:#78350f; background:#fef3c7; border:1px solid #fcd34d;
+                                                        border-radius:999px; padding:1px 8px;">
+                                                Chosen from gallery
+                                            </div>
+                                        @endif
                                     @else
                                         <div
                                             style="width:100%; max-width:140px; aspect-ratio:1; margin:0 auto; display:flex; align-items:center; justify-content:center; background:#f1f5f9; color:#94a3b8; border-radius:8px; font-size:.72rem;">
@@ -163,18 +179,46 @@
                                 </button>
                             </form>
 
-                            {{-- Reject form --}}
-                            <form method="POST" action="{{ route('toc.patrol-registrations.reject', $reg) }}">
+            {{-- Reject form.
+
+                 The reason was a free-text box, which meant every reviewer
+                 phrased the same rejection differently and the applicant — who
+                 is sent this text verbatim on their phone — got whatever was
+                 typed in a hurry. The list below is the set of checks a
+                 reviewer actually performs against the personnel roster, so
+                 the common cases are one click and read the same every time.
+                 "Other" stays, because no fixed list survives contact with a
+                 real station. --}}
+                            <form method="POST" action="{{ route('toc.patrol-registrations.reject', $reg) }}"
+                                  class="reject-form">
                                 @csrf
-                                <div class="input-group input-group-sm">
-                                    <input type="text" name="rejection_reason" class="form-control"
-                                        placeholder="Rejection reason…" style="border-color:#c8d8e4; font-size:.78rem;"
-                                        required>
-                                    <button type="submit" class="btn btn-sm text-white fw-semibold"
-                                        style="background:#b91c1c; font-size:.78rem;">
-                                        ✕ Reject
-                                    </button>
-                                </div>
+
+                                <select name="rejection_reason" class="form-select form-select-sm reject-reason mb-2"
+                                        style="border-color:#c8d8e4; font-size:.78rem;" required>
+                                    <option value="" selected disabled>Reason for rejection…</option>
+                                    @foreach (\App\Models\PatrolRegistration::REJECTION_REASONS as $reason)
+                                        <option value="{{ $reason }}">{{ $reason }}</option>
+                                    @endforeach
+                                    <option value="{{ \App\Models\PatrolRegistration::REJECTION_OTHER }}">
+                                        Other — write a reason…
+                                    </option>
+                                </select>
+
+                                {{-- Revealed only when "Other" is chosen. Not
+                                     required in markup: a hidden required field
+                                     blocks submission with a message the
+                                     reviewer cannot see. The script sets it,
+                                     and the server enforces it regardless. --}}
+                                <textarea name="rejection_reason_other" rows="2"
+                                          class="form-control form-control-sm reject-other mb-2"
+                                          style="border-color:#c8d8e4; font-size:.78rem; display:none;"
+                                          maxlength="500"
+                                          placeholder="Explain what the officer needs to correct…"></textarea>
+
+                                <button type="submit" class="btn btn-sm w-100 text-white fw-semibold"
+                                    style="background:#b91c1c; font-size:.78rem;">
+                                    ✕ Reject
+                                </button>
                             </form>
 
                         </div>
@@ -231,3 +275,30 @@
     </div>
 
 @endsection
+
+@push('scripts')
+<script>
+    // One delegated listener rather than one per card — the page renders a
+    // form for every pending registration, and binding each separately means
+    // a form added later is silently inert.
+    document.addEventListener('change', function (e) {
+        const select = e.target.closest('.reject-reason');
+        if (!select) return;
+
+        const form  = select.closest('.reject-form');
+        const other = form?.querySelector('.reject-other');
+        if (!other) return;
+
+        const wantsOther = select.value === @json(\App\Models\PatrolRegistration::REJECTION_OTHER);
+
+        other.style.display = wantsOther ? '' : 'none';
+        other.required = wantsOther;
+        if (wantsOther) {
+            other.focus();
+        } else {
+            other.value = '';
+        }
+    });
+</script>
+@endpush
+

@@ -53,9 +53,4 @@ class Device extends Model
     {
         return $this->hasMany(Incident::class);
     }
-
-    public function speedReports(): HasMany
-    {
-        return $this->hasMany(SpeedReport::class);
-    }
 }

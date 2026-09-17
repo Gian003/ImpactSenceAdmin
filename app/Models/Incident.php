@@ -24,6 +24,32 @@ class Incident extends Model
      */
     public const LIVE_WINDOW_HOURS = 12;
 
+    /**
+     * Every incident filed by the TOC's demonstration tool carries this on the
+     * front of its address. It is deliberately visible on the board: a panel
+     * watching a demo should be able to see that the call on screen is a drill,
+     * and an officer opening the board tomorrow should not have to guess.
+     *
+     * It is also what makes them findable again — see scopeSimulations().
+     */
+    public const SIMULATION_PREFIX = 'SIMULATION — ';
+
+    /**
+     * Drills only. Used by the "remove simulated incidents" action so a
+     * demonstration can be cleared out of the board and the statistics without
+     * hand-picking rows.
+     */
+    public function scopeSimulations($query)
+    {
+        return $query->where('address', 'LIKE', self::SIMULATION_PREFIX . '%');
+    }
+
+    /** True if this incident was filed by the demonstration tool. */
+    public function isSimulation(): bool
+    {
+        return str_starts_with((string) $this->address, self::SIMULATION_PREFIX);
+    }
+
     protected $fillable = [
         'rider_id',
         'device_id',
@@ -31,6 +57,7 @@ class Incident extends Model
         'type',
         'latitude',
         'longitude',
+        'location_verified',
         'address',
         'severity',
         'status',
@@ -50,6 +77,9 @@ class Incident extends Model
         return [
             'latitude'          => 'float',
             'longitude'         => 'float',
+            // true = a real satellite fix, false = the device's fallback
+            // point, null = not reported (older firmware, or the rider app).
+            'location_verified' => 'boolean',
             'vehicles_involved' => 'integer',
             'injured_count'     => 'integer',
             'dispatched_at'     => 'datetime',
