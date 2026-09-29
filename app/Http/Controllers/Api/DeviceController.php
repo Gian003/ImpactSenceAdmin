@@ -193,8 +193,16 @@ class DeviceController extends Controller
             return $this->apiResponse(false, 'Rider has no emergency contact on file', null, 404);
         }
 
+        // Cleaned before it leaves: the device caches this name in flash and
+        // puts it straight into the SMS it sends from the crash scene. Names
+        // are stored assembled from parts, and a missing part leaves a literal
+        // "N/A" in the middle — so the text read "Juan Dela Cruz N/A may have
+        // been in a motorcycle accident". The server-side SMS and the spoken
+        // Twilio call already clean it the same way.
+        $riderName = \App\Models\User::cleanName($device->rider->full_name);
+
         return $this->apiResponse(true, 'Emergency contact retrieved', [
-            'rider_name'       => $device->rider->full_name,
+            'rider_name'       => $riderName !== '' ? $riderName : 'A registered ImpactSense rider',
             'name'             => $contact->name,
             'phone_number'     => $contact->phone_number,
             'sim_phone_number' => $device->sim_phone_number,

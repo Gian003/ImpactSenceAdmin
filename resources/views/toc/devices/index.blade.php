@@ -336,6 +336,50 @@
                                             Copy
                                         </button>
                                     </span>
+
+                                    {{-- The line that proves reports come from this
+                                         hardware. Copied whole and pasted into the
+                                         serial monitor while provisioning; never
+                                         shown on the device itself, and never in any
+                                         response the device receives. --}}
+                                    @if ($dev->signing_secret)
+                                        <div style="margin-top:6px;">
+                                            <button type="button"
+                                                onclick="copyPk(this, '{{ $dev->provisioningCommand() }}')"
+                                                style="background:none; border:1px dashed #cbd5e1; border-radius:5px;
+                                                       cursor:pointer; color:#475569; font-size:.7rem; padding:2px 8px;"
+                                                title="Paste this into the serial monitor during provisioning">
+                                                Copy signing command
+                                            </button>
+                                            @if ($dev->requiresSignature())
+                                                <span style="font-size:.7rem; color:#15803d; margin-left:6px;"
+                                                      title="This device has signed a report, so unsigned reports claiming to be it are refused.">
+                                                    signed reports active
+                                                </span>
+                                            @else
+                                                <span style="font-size:.7rem; color:#b45309; margin-left:6px;"
+                                                      title="Until this device signs once, unsigned reports from it are still accepted.">
+                                                    not provisioned to sign yet
+                                                </span>
+                                            @endif
+
+                                            {{-- For a board that lost its flash, or a code moved to
+                                                 a replacement board: it restarts its request counter
+                                                 below what the server has already accepted, and every
+                                                 report is refused as a replay until this is pressed. --}}
+                                            <form method="POST" action="{{ route('toc.devices.reprovision', $dev) }}"
+                                                  style="display:inline;"
+                                                  onsubmit="return confirm('Give {{ $dev->device_code }} a new signing secret and clear its counter?\n\nIts current secret stops working immediately. You will need to send the new SECRET line to the board before it can report again.\n\nUse this after erasing a board, or when moving this code to a replacement board.');">
+                                                @csrf
+                                                <button type="submit"
+                                                    style="background:none; border:none; cursor:pointer; color:#9a3412;
+                                                           font-size:.7rem; text-decoration:underline; padding:0; margin-left:6px;"
+                                                    title="Erased or replaced the board? This issues a new secret and resets the counter.">
+                                                    Re-provision
+                                                </button>
+                                            </form>
+                                        </div>
+                                    @endif
                                 </td>
                                 <td style="padding:11px 16px; color:#475569; border-bottom:1px solid #f5eeef;">
                                     {{ $dev->model ?? '—' }}</td>
@@ -412,6 +456,31 @@
                                         style="font-family:monospace; background:#f1f5f9; padding:2px 8px; border-radius:5px; font-size:.82rem;">
                                         {{ $rider->device->device_code }}
                                     </span>
+
+                                    {{-- A board can fail after it is paired, so the same
+                                         recovery has to be reachable from here too. --}}
+                                    @if ($rider->device->signing_secret)
+                                        <div style="margin-top:5px; display:flex; align-items:center; gap:8px;">
+                                            <button type="button"
+                                                onclick="copyPk(this, '{{ $rider->device->provisioningCommand() }}')"
+                                                style="background:none; border:1px dashed #cbd5e1; border-radius:5px;
+                                                       cursor:pointer; color:#475569; font-size:.68rem; padding:1px 7px;"
+                                                title="Paste this into the serial monitor during provisioning">
+                                                Copy signing command
+                                            </button>
+                                            <form method="POST" action="{{ route('toc.devices.reprovision', $rider->device) }}"
+                                                  style="display:inline;"
+                                                  onsubmit="return confirm('Give {{ $rider->device->device_code }} a new signing secret and clear its counter?\n\nIts current secret stops working immediately. You will need to send the new SECRET line to the board before it can report again.');">
+                                                @csrf
+                                                <button type="submit"
+                                                    style="background:none; border:none; cursor:pointer; color:#9a3412;
+                                                           font-size:.68rem; text-decoration:underline; padding:0;"
+                                                    title="Erased or replaced the board? This issues a new secret and resets the counter.">
+                                                    Re-provision
+                                                </button>
+                                            </form>
+                                        </div>
+                                    @endif
                                 @else
                                     <span style="color:#64748b;">No device</span>
                                 @endif
@@ -656,6 +725,31 @@
                             <div style="font-size:.8rem; font-weight:700; color:#9a3412; margin-bottom:8px;">
                                 Which alerts to actually send
                             </div>
+
+                            @php
+                                $callsOff = ! config('services.outbound.calls', true);
+                                $smsOff   = ! config('services.outbound.sms', true);
+                            @endphp
+                            @if ($callsOff || $smsOff)
+                                {{-- Said here, loudly. Otherwise a rehearsal where nothing
+                                     rings reads as a broken system, and someone "fixes" it
+                                     by changing something that was never wrong. --}}
+                                <div style="background:#ecfdf5; border:1px solid #6ee7b7; border-radius:6px;
+                                            padding:8px 10px; margin-bottom:10px; font-size:.78rem; color:#065f46;">
+                                    <strong>Rehearsal mode.</strong>
+                                    @if ($callsOff && $smsOff)
+                                        Calls and texts are switched off server-wide
+                                    @elseif ($callsOff)
+                                        Calls are switched off server-wide
+                                    @else
+                                        Texts are switched off server-wide
+                                    @endif
+                                    — nothing below leaves the building, however it is started,
+                                    including a crash from a real device. What would have been
+                                    sent is written to the log. Re-enable in <code>.env</code>
+                                    (<code>OUTBOUND_CALLS_ENABLED</code> / <code>OUTBOUND_SMS_ENABLED</code>).
+                                </div>
+                            @endif
 
                             <div class="form-check mb-2">
                                 <input class="form-check-input sim-channel" type="checkbox"

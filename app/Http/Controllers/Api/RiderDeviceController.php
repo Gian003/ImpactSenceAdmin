@@ -86,6 +86,13 @@ class RiderDeviceController extends Controller
     }
 
     // IoT device: push battery level + active status.
+    //
+    // The firmware also sends latitude, longitude and speed_kph on any
+    // heartbeat where it has a satellite fix, and backend.cpp still says those
+    // land in speed_reports. They do not, deliberately: speed reporting was
+    // dropped because the PNP does not operate it, so the fields are ignored
+    // here and the table is dead. Remove the sending from reportDeviceStatus()
+    // rather than reviving this.
     public function updateStatus(Request $request): JsonResponse
     {
         $data = $request->validate([

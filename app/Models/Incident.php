@@ -25,6 +25,28 @@ class Incident extends Model
     public const LIVE_WINDOW_HOURS = 12;
 
     /**
+     * A rider pressing the voice assistant's alert button, as opposed to a
+     * crash detected by the phone or the helmet device.
+     */
+    public const TYPE_VOICE_ALERT = 'voice_alert';
+
+    /**
+     * Whether this incident should text the rider's emergency contact.
+     *
+     * True for a detected crash: the family needs to know. False for a voice
+     * alert, which is the rider deliberately calling the desk — it reaches the
+     * TOC hotline and the dispatch board, and does not text anyone's family
+     * because the rider is conscious and asking for a unit, not in a wreck.
+     *
+     * Decided here rather than by the app, so nothing sent from a phone can
+     * suppress the message a real crash is supposed to send.
+     */
+    public function notifiesEmergencyContacts(): bool
+    {
+        return $this->type !== self::TYPE_VOICE_ALERT;
+    }
+
+    /**
      * Every incident filed by the TOC's demonstration tool carries this on the
      * front of its address. It is deliberately visible on the board: a panel
      * watching a demo should be able to see that the call on screen is a drill,

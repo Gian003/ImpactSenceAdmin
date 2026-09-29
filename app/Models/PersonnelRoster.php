@@ -46,6 +46,34 @@ class PersonnelRoster extends Model
         'Non-Uniformed Personnel (NUP)',
     ];
 
+    /**
+     * A PNP officer's identification number is six digits. The app used to ask
+     * for "PNP-12345", which is not what is printed on an officer's ID — that
+     * prefixed style belongs to a handful of senior posts, not to the patrol
+     * officers who use this system.
+     *
+     * Kept here, with the roster, because the roster is the authoritative list
+     * every other badge field is checked against.
+     */
+    public const BADGE_DIGITS = 6;
+
+    /** Validation rules for a badge number, shared by every form that takes one. */
+    public static function badgeRules(): array
+    {
+        return ['required', 'string', 'digits:' . self::BADGE_DIGITS];
+    }
+
+    /** One wording for the error, wherever it is raised. */
+    public static function badgeMessages(string $field = 'badge_number'): array
+    {
+        return [
+            $field . '.digits' => 'A badge number is the officer\'s '
+                . self::BADGE_DIGITS . '-digit PNP ID — digits only, no letters or dashes.',
+            $field . '.required' => 'Enter the officer\'s '
+                . self::BADGE_DIGITS . '-digit PNP ID.',
+        ];
+    }
+
     protected $fillable = [
         'badge_number',
         'full_name',

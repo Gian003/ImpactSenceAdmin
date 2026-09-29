@@ -9,20 +9,33 @@ use Twilio\TwiML\VoiceResponse;
 
 class VoiceCallService
 {
-    // Slower than Polly's default. A duty officer hears this once, cold,
-    // often while doing something else - the message being a second longer
-    // matters far less than it being caught first time.
-    private const SPEECH_RATE = '85%';
+    // A shade under Polly's natural pace. 85% was slow enough to read as
+    // laboured rather than calm, and a dispatcher waiting through it is a
+    // dispatcher not yet moving. 95% is unhurried without dragging - still
+    // clearly slower than someone in a panic, which is the effect worth having.
+    private const SPEECH_RATE = '95%';
 
-    // Long enough to separate each fact into its own beat, short enough that
-    // the call doesn't drag.
-    private const SENTENCE_PAUSE = '700ms';
+    // Enough to give each fact its own beat. Shortened along with the rate so
+    // the pauses stay proportionate to the speech, instead of turning the call
+    // into a series of gaps.
+    private const SENTENCE_PAUSE = '500ms';
 
-    // Configurable so the voice can be changed without a code edit if it
-    // doesn't sound right on a real handset.
+    // Configurable so the voice can be changed without a code edit if it does
+    // not sound right on a real handset.
+    //
+    // Joanna-Neural is even, articulate and free of the urgency an emergency
+    // announcement does not need - the words already carry that, and a voice
+    // that sounds alarmed makes a listener slower, not faster. Its higher
+    // fundamental also cuts through the background noise these calls are
+    // actually heard in, which a lower male voice does not.
+    //
+    // Worth trying on a real phone before settling:
+    //   Polly.Amy-Neural      British, calmer still, a little more formal
+    //   Polly.Matthew-Neural  US male, the previous default
+    //   Polly.Brian-Neural    British male
     private function voice(): string
     {
-        return config('services.twilio.voice') ?: 'Polly.Matthew-Neural';
+        return config('services.twilio.voice') ?: 'Polly.Joanna-Neural';
     }
 
     // Places a call and speaks $lines via Twilio's TTS, one sentence per
@@ -50,6 +63,18 @@ class VoiceCallService
     // @param string[] $lines
     public function call(string $phoneNumber, array $lines): ?string
     {
+        // Rehearsal switch — see config/services.php. Checked before anything
+        // else so no call site can route around it, and logged loudly enough
+        // that a silent demo is never mistaken for a broken one.
+        if (! config('services.outbound.calls', true)) {
+            Log::info('Outbound calls are switched off — call not placed.', [
+                'to'    => $phoneNumber,
+                'would_have_said' => implode(' ', $lines),
+            ]);
+
+            return null;
+        }
+
         $accountSid = config('services.twilio.account_sid');
         $authToken  = config('services.twilio.auth_token');
         $fromNumber = config('services.twilio.from_number');

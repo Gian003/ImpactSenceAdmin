@@ -4,13 +4,68 @@
 // window.TocDevicesConfig (set by a small inline <script> in that Blade file
 // right before this one loads).
 
+// Copies a pairing key or a signing command to the clipboard.
+//
+// navigator.clipboard only exists in a secure context — HTTPS, or localhost.
+// Opened over plain http:// on the LAN it is undefined, and this used to call
+// it anyway with no .catch(), so the copy failed silently: the button never
+// changed, the clipboard kept whatever was in it, and the next paste sent
+// something stale. That is a nasty way to fail when what is being pasted is a
+// device's signing secret, because the board then reports an error about a
+// command the operator believes they sent correctly.
+//
+// So: try the modern API, fall back to the old execCommand trick that works
+// without HTTPS, and if both fail, show the text so it can be copied by hand.
+// Never fail quietly.
 function copyPk(btn, key) {
-    navigator.clipboard.writeText(key).then(() => {
+    const flash = (text, colour) => {
         const orig = btn.textContent;
-        btn.textContent = 'Copied!';
-        btn.style.color = '#2a7c5b';
-        setTimeout(() => { btn.textContent = orig; btn.style.color = '#6b7280'; }, 1500);
-    });
+        btn.textContent = text;
+        btn.style.color = colour;
+        setTimeout(() => { btn.textContent = orig; btn.style.color = '#6b7280'; }, 2000);
+    };
+
+    const legacyCopy = () => {
+        // A textarea, not an input: an input strips newlines, and this has to
+        // carry whatever it is given verbatim.
+        const scratch = document.createElement('textarea');
+        scratch.value = key;
+        scratch.setAttribute('readonly', '');
+        scratch.style.position = 'fixed';
+        scratch.style.top = '-1000px';
+        document.body.appendChild(scratch);
+        scratch.select();
+
+        let ok = false;
+        try {
+            ok = document.execCommand('copy');
+        } catch (e) {
+            ok = false;
+        }
+
+        document.body.removeChild(scratch);
+        return ok;
+    };
+
+    const fallback = () => {
+        if (legacyCopy()) {
+            flash('Copied!', '#2a7c5b');
+            return;
+        }
+
+        flash('Copy it manually', '#b91c1c');
+        // Selectable, so it can still be got out of the page by hand.
+        window.prompt('Copy this line (Ctrl+C), then paste it into the serial monitor:', key);
+    };
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(key)
+            .then(() => flash('Copied!', '#2a7c5b'))
+            .catch(fallback);
+        return;
+    }
+
+    fallback();
 }
 
 const labels = window.TocDevicesConfig.chartLabels;

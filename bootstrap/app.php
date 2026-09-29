@@ -16,6 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role'  => \App\Http\Middleware\CheckRole::class,
             'admin' => \App\Http\Middleware\AdminAuthenticate::class,
+            // Proves a report came from the device it claims to be from.
+            'device.signed' => \App\Http\Middleware\VerifyDeviceSignature::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

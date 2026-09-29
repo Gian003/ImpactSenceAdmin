@@ -24,8 +24,10 @@ Broadcast::routes([
 ]);
 
 // ── IOT DEVICE ────────────────────────────────────────────────────────────────
-// No Sanctum token — authenticated by device_code only
-Route::prefix('device')->group(function () {
+// No Sanctum token. Identified by device_code, and — once a unit has been
+// provisioned with its signing secret — proved by a signature over the body.
+// See App\Http\Middleware\VerifyDeviceSignature.
+Route::prefix('device')->middleware('device.signed')->group(function () {
     // Deliberately generous. This is the crash path: a device that has just
     // detected an impact, possibly retrying over a poor GSM link, must not be
     // turned away by a rate limit. 30/minute stops a loop hammering the
@@ -65,9 +67,11 @@ Route::prefix('rider')->group(function () {
     Route::post('otp/verify', [RiderAuthController::class, 'otpVerify'])
         ->middleware('throttle:10,1');
 
-    // IoT device status push (device_code used instead of token)
+    // IoT device status push (device_code used instead of token). Signed the
+    // same way as the two /device routes — it is the same hardware talking,
+    // and it writes battery state and speed samples against a device row.
     Route::post('device/status', [RiderDeviceController::class, 'updateStatus'])
-        ->middleware('throttle:60,1');
+        ->middleware(['throttle:60,1', 'device.signed']);
 
     // Authenticated
     Route::middleware('auth:sanctum')->group(function () {
@@ -93,6 +97,18 @@ Route::prefix('rider')->group(function () {
         Route::get('incidents',                          [IncidentController::class, 'index']);
         Route::post('incidents',                         [IncidentController::class, 'store']);
         Route::patch('incidents/{incident}/cancel',      [IncidentController::class, 'cancelIncident']);
+
+        // The number the app dials in an emergency — the TOC desk, the same
+        // hotline Twilio calls. Served rather than hardcoded so it can be
+        // changed in .env without shipping a new build, and so the number a
+        // rider phones is always the one the desk is actually answering.
+        Route::get('hotline', function () {
+            return response()->json([
+                'success' => true,
+                'message' => 'Hotline retrieved',
+                'data'    => ['hotline' => config('services.twilio.toc_number')],
+            ]);
+        });
 
         // Emergency contacts
         Route::get('emergency-contacts',          [EmergencyContactController::class, 'index']);

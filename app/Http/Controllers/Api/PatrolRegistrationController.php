@@ -33,15 +33,18 @@ class PatrolRegistrationController extends Controller
                                         'unique:patrol_units,email'],
             'phone_number'          => ['nullable', 'string', 'max:20'],
             'password'              => ['required', 'string', 'min:8', 'confirmed'],
-            'badge_number'          => ['required', 'string', 'max:50',
-                                        'unique:patrol_units,badge_number',
-                                        'unique:patrol_registrations,badge_number'],
+            'badge_number'          => [
+                ...PersonnelRoster::badgeRules(),
+                'unique:patrol_units,badge_number',
+                'unique:patrol_registrations,badge_number',
+            ],
             'photo'                 => ['required', 'image', 'max:5120'], // 5MB
             // Optional so an older app build, which only ever used the
             // camera, can still register.
             'photo_source'          => ['nullable', 'in:camera,gallery'],
             'fcm_token'             => ['nullable', 'string'],
         ], [
+            ...PersonnelRoster::badgeMessages(),
             // A gallery pick can be a format the dashboard cannot display
             // (an iPhone HEIC, for example). Tell the applicant what to do
             // rather than just "must be an image".

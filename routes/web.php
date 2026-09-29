@@ -758,6 +758,47 @@ Route::prefix('toc')
                 ->with('success', 'Device "' . $device->device_code . '" updated.');
         })->name('devices.update');
 
+        // Hands a device a fresh signing secret and clears its request counter.
+        //
+        // Needed whenever a board loses its flash — an erase, or the code being
+        // moved to a replacement board after a hardware failure. The device
+        // then starts counting from the beginning, below the highest number the
+        // server has already accepted, and every report it sends is refused as
+        // a replay. Without this, that unit is stranded.
+        //
+        // The secret is rotated rather than only resetting the counter. A reset
+        // on its own would briefly accept an old captured request, since there
+        // is no longer a high-water mark to refuse it; rotating makes every
+        // request signed with the old secret worthless. The technician has to
+        // retype SECRET either way, because the board just lost it.
+        //
+        // signature_required_since is deliberately left alone: this device has
+        // proved it can sign, and a lost secret must not quietly return it to
+        // accepting unsigned reports.
+        Route::post('/devices/{device}/reprovision', function (Device $device) {
+            if (! Device::signingSupported()) {
+                return back()->withErrors([
+                    'device_code' => 'Signed reports need the database migration first — run php artisan migrate.',
+                ]);
+            }
+
+            $device->forceFill([
+                'signing_secret'         => bin2hex(random_bytes(32)),
+                'last_signature_counter' => 0,
+            ])->save();
+
+            \Illuminate\Support\Facades\Log::warning('Device re-provisioned: new signing secret, counter reset', [
+                'device_code' => $device->device_code,
+                'by'          => Auth::guard('toc')->user()?->full_name,
+            ]);
+
+            return redirect()->route('toc.devices.index')->with(
+                'success',
+                'Device "' . $device->device_code . '" is ready to re-provision. Copy its new signing '
+                . 'command and send it to the board — until you do, its reports will be refused.',
+            );
+        })->name('devices.reprovision');
+
         // ── Patrol registrations ──────────────────────────────────────────────
         Route::get('/patrol-registrations', function () {
             return view('toc.patrol-registrations.index', [
@@ -900,11 +941,14 @@ Route::prefix('toc')
 
         Route::post('/personnel-roster', function (Request $request) {
             $data = $request->validate([
-                'badge_number' => ['required', 'string', 'max:50', 'unique:personnel_roster,badge_number'],
+                'badge_number' => [
+                    ...\App\Models\PersonnelRoster::badgeRules(),
+                    'unique:personnel_roster,badge_number',
+                ],
                 'full_name'    => ['required', 'string', 'max:150'],
                 'rank'         => ['required', 'string', \Illuminate\Validation\Rule::in(\App\Models\PersonnelRoster::RANKS)],
                 'photo'        => ['nullable', 'image', 'max:5120'],
-            ]);
+            ], \App\Models\PersonnelRoster::badgeMessages());
 
             if ($request->hasFile('photo')) {
                 $data['reference_photo_path'] = $request->file('photo')->store('personnel-roster-photos', 'public');

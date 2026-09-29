@@ -12,7 +12,7 @@
 <div class="hero-card">
 
     {{-- TOP NAV --}}
-    <div class="top-nav">
+    {{-- <div class="top-nav">
         <div class="nav-brand">
             <img src="{{ asset('images/pnp_logo.png') }}" width="28" height="28"
                  style="object-fit:contain;" alt="PNP" onerror="this.style.display='none'">
@@ -25,7 +25,7 @@
                 <a href="{{ route('login') }}" class="btn-primary-custom">Log in</a>
             @endauth
         @endif
-    </div>
+    </div> --}}
 
     {{-- HERO BODY --}}
     <div class="hero-body">

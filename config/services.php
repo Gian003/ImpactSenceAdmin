@@ -60,6 +60,20 @@ return [
         'voice'        => env('TWILIO_VOICE', 'Polly.Matthew-Neural'),
     ],
 
+    // Rehearsal switches. Off means the channel is not used by anything —
+    // a device crash, a rider's report, a drill, a patrol alert — so a test
+    // cannot ring a real phone or spend credits however it was started.
+    //
+    // Guarded inside VoiceCallService and SmsService rather than at the call
+    // sites, because there are several call sites and one of them will always
+    // be the one nobody remembered. Everything else still runs: the incident
+    // is filed, the dashboard lights up, the timeline records what would have
+    // been sent.
+    'outbound' => [
+        'calls' => (bool) env('OUTBOUND_CALLS_ENABLED', true),
+        'sms'   => (bool) env('OUTBOUND_SMS_ENABLED', true),
+    ],
+
     // Alerting the nearest free patrol unit alongside the TOC hotline call.
     // See App\Jobs\AlertNearestPatrol.
     //

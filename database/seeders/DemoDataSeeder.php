@@ -6,6 +6,7 @@ use App\Models\Device;
 use App\Models\Incident;
 use App\Models\PatrolRegistration;
 use App\Models\PatrolUnit;
+use App\Models\PersonnelRoster;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
@@ -17,12 +18,19 @@ class DemoDataSeeder extends Seeder
     public function run(): void
     {
         // ── Patrol Units ──────────────────────────────────────────────────────
+        // Badge numbers are the officer's six-digit PNP ID — the same rule the
+        // roster and the registration form enforce. They used to read
+        // "PNP-U-001", which no officer's ID actually looks like.
+        //
+        // Ranks come from PersonnelRoster::RANKS so a seeded unit and its
+        // roster entry agree; the old 'SPO1'/'PO2' strings are not on that
+        // list and could never have been entered through the roster form.
         $patrolData = [
-            ['full_name' => 'SPO1 Andres Lumabao',   'badge_number' => 'PNP-U-001', 'email' => 'lumabao@patrol.demo',  'rank' => 'SPO1', 'mobile_number' => '09181000001', 'status' => 'available'],
-            ['full_name' => 'PO2 Dennis Perez',       'badge_number' => 'PNP-U-002', 'email' => 'perez@patrol.demo',    'rank' => 'PO2',  'mobile_number' => '09181000002', 'status' => 'available'],
-            ['full_name' => 'PO1 Maricel Tabor',      'badge_number' => 'PNP-U-003', 'email' => 'tabor@patrol.demo',    'rank' => 'PO1',  'mobile_number' => '09181000003', 'status' => 'off_duty'],
-            ['full_name' => 'SPO2 Roberto Ibanez',    'badge_number' => 'PNP-U-004', 'email' => 'ibanez@patrol.demo',   'rank' => 'SPO2', 'mobile_number' => '09181000004', 'status' => 'available'],
-            ['full_name' => 'PO3 Christine Esguerra', 'badge_number' => 'PNP-U-005', 'email' => 'esguerra@patrol.demo', 'rank' => 'PO3',  'mobile_number' => '09181000005', 'status' => 'dispatched'],
+            ['full_name' => 'Andres Lumabao',     'badge_number' => '918701', 'email' => 'lumabao@patrol.demo',  'rank' => 'Police Staff Sergeant',     'mobile_number' => '09181000001', 'status' => 'available'],
+            ['full_name' => 'Dennis Perez',       'badge_number' => '918702', 'email' => 'perez@patrol.demo',    'rank' => 'Police Corporal',           'mobile_number' => '09181000002', 'status' => 'available'],
+            ['full_name' => 'Maricel Tabor',      'badge_number' => '918703', 'email' => 'tabor@patrol.demo',    'rank' => 'Patrolman/Patrolwoman',     'mobile_number' => '09181000003', 'status' => 'off_duty'],
+            ['full_name' => 'Roberto Ibanez',     'badge_number' => '918704', 'email' => 'ibanez@patrol.demo',   'rank' => 'Police Master Sergeant',    'mobile_number' => '09181000004', 'status' => 'available'],
+            ['full_name' => 'Christine Esguerra', 'badge_number' => '918705', 'email' => 'esguerra@patrol.demo', 'rank' => 'Police Corporal',           'mobile_number' => '09181000005', 'status' => 'dispatched'],
         ];
 
         $patrolIds = [];
@@ -32,6 +40,15 @@ class DemoDataSeeder extends Seeder
                 array_merge($p, ['password' => Hash::make('password')])
             );
             $patrolIds[] = $unit->id;
+
+            // Every serving officer belongs on the roster. It was never seeded
+            // at all, which left the TOC's Personnel Roster page empty and made
+            // patrol registration impossible on a fresh database: the API
+            // checks the badge against this table before anything else.
+            PersonnelRoster::updateOrCreate(
+                ['badge_number' => $p['badge_number']],
+                ['full_name' => $p['full_name'], 'rank' => $p['rank'], 'is_active' => true],
+            );
         }
 
         // ── Riders ────────────────────────────────────────────────────────────
@@ -97,16 +114,35 @@ class DemoDataSeeder extends Seeder
         }
 
         // ── Pending Patrol Registrations ──────────────────────────────────────
+        // Each applicant carries the badge and rank they would have submitted,
+        // and has a matching roster entry — otherwise the TOC review page shows
+        // "not on file with TOC" for every one of them and the approve button
+        // cannot be demonstrated.
         $pendingRegistrations = [
-            ['first_name' => 'Carlo',   'last_name' => 'Macaraeg',   'email' => 'carlo.macaraeg@pending.demo',   'phone_number' => '09182000001'],
-            ['first_name' => 'Janine',  'last_name' => 'Quilantang', 'email' => 'janine.quilantang@pending.demo', 'phone_number' => '09182000002'],
-            ['first_name' => 'Bernard', 'last_name' => 'Domingo',    'email' => 'bernard.domingo@pending.demo',   'phone_number' => '09182000003'],
+            ['first_name' => 'Carlo',   'last_name' => 'Macaraeg',   'email' => 'carlo.macaraeg@pending.demo',    'phone_number' => '09182000001', 'badge_number' => '918711', 'rank' => 'Patrolman/Patrolwoman'],
+            ['first_name' => 'Janine',  'last_name' => 'Quilantang', 'email' => 'janine.quilantang@pending.demo', 'phone_number' => '09182000002', 'badge_number' => '918712', 'rank' => 'Police Corporal'],
+            ['first_name' => 'Bernard', 'last_name' => 'Domingo',    'email' => 'bernard.domingo@pending.demo',   'phone_number' => '09182000003', 'badge_number' => '918713', 'rank' => 'Patrolman/Patrolwoman'],
         ];
 
         foreach ($pendingRegistrations as $reg) {
+            PersonnelRoster::updateOrCreate(
+                ['badge_number' => $reg['badge_number']],
+                [
+                    'full_name' => $reg['first_name'] . ' ' . $reg['last_name'],
+                    'rank'      => $reg['rank'],
+                    'is_active' => true,
+                ],
+            );
+
             PatrolRegistration::updateOrCreate(
                 ['email' => $reg['email']],
-                array_merge($reg, ['password' => Hash::make('password'), 'status' => 'pending'])
+                array_merge($reg, [
+                    'password' => Hash::make('password'),
+                    'status'   => 'pending',
+                    // Seeded applicants have no uploaded photo; the review page
+                    // already handles that and shows "None".
+                    'photo_source' => PatrolRegistration::PHOTO_CAMERA,
+                ])
             );
         }
 

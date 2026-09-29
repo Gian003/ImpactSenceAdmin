@@ -7,8 +7,10 @@ use App\Events\IncidentStatusUpdated;
 use App\Events\PatrolDispatched;
 use App\Events\PatrolLocationUpdated;
 use App\Http\Controllers\Controller;
+use App\Jobs\AlertNearestPatrol;
 use App\Jobs\NotifyEmergencyContacts;
 use App\Jobs\SendPushNotification;
+use App\Support\PatrolAlertSchema;
 use App\Models\Incident;
 use App\Services\EmergencyNotificationService;
 use App\Services\FcmService;
@@ -28,10 +30,20 @@ class IncidentController extends Controller
             'longitude' => ['required', 'numeric', 'between:-180,180'],
             'address'   => ['nullable', 'string'],
             'severity'  => ['sometimes', Rule::in(['low', 'medium', 'high', 'critical'])],
+            // Accepted so the app can say its position came from a real fix
+            // rather than a coarse or stale one. It does not send this yet.
+            'location_verified' => ['sometimes', 'boolean'],
         ]);
 
         $rider  = $request->user();
         $device = $rider->device;
+
+        // Dropped until the column exists — the same guard as the device
+        // endpoint, so new code reaching a server before its migration cannot
+        // stop a rider filing a report. See App\Support\PatrolAlertSchema.
+        if (! PatrolAlertSchema::ready()) {
+            unset($data['location_verified']);
+        }
 
         $incident = Incident::create([
             ...$data,
@@ -76,11 +88,33 @@ class IncidentController extends Controller
 
             // SMS (Semaphore) + voice call (Twilio TTS) to the rider's
             // emergency contact — see EmergencyNotificationService.
-            NotifyEmergencyContacts::dispatch($incident);
+            // The hotline call always goes; the SMS to the rider's contact
+            // depends on what kind of report this is (see the model).
+            NotifyEmergencyContacts::dispatch(
+                $incident,
+                $incident->notifiesEmergencyContacts(),
+                true,
+            );
         } catch (\Throwable $e) {
             Log::error('Queueing crash notifications failed', [
                 'incident' => $incident->id, 'error' => $e->getMessage(),
             ]);
+        }
+
+        // The nearest free patrol unit, exactly as for a device report — a
+        // rider pressing SOS in the app needs the same help as one whose
+        // helmet reported for them. The alert refuses to run unless the
+        // report says its location is a confirmed fix, which the app does not
+        // send yet, so today this only records why it stood down. That is the
+        // safe direction: the TOC still dispatches.
+        if (config('services.patrol_alert.enabled')) {
+            try {
+                AlertNearestPatrol::start($incident);
+            } catch (\Throwable $e) {
+                Log::error('Queueing nearest-patrol alert failed', [
+                    'incident' => $incident->id, 'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         return $this->apiResponse(true, 'Incident reported', $incident, 201);

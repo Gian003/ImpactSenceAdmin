@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Incident;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class EmergencyNotificationService
 {
@@ -120,16 +121,55 @@ class EmergencyNotificationService
         return $address;
     }
 
-    // SMS keeps the maps link — a tappable pin is the single most useful
-    // thing you can hand someone reading this on a phone.
+    // SMS keeps the maps link — a tappable pin is the single most useful thing
+    // you can hand someone reading this on a phone.
+    //
+    // Written to fit 160 characters, because Semaphore bills per segment and
+    // the old wording ran to 175-208 — every real crash cost two credits
+    // instead of one, for no extra information. Three things bought that back:
+    // shorter phrasing, coordinates at 4 decimal places (~11 m, which is finer
+    // than the GPS itself), and a cap on the geocoded place name, which is the
+    // only part with no upper bound.
+    //
+    // The place is trimmed to fit, and dropped entirely if it still will not.
+    // A fixed cap was not enough: the rider's name has no upper bound either,
+    // and a long one pushed the total back over on its own. Shortening what is
+    // least useful is better than mangling a name the family has to recognise,
+    // so the order of sacrifice is place, then nothing - the name, the
+    // severity and the map link always survive.
+    private const SEGMENT = 160;
+
     private function buildSmsMessage(Incident $incident, ?string $place): string
     {
         $riderName = $this->riderName($incident);
-        $mapsLink  = "https://maps.google.com/?q={$incident->latitude},{$incident->longitude}";
-        $where     = $place ? " near {$place}." : '.';
+        $mapsLink  = sprintf(
+            'https://maps.google.com/?q=%.4f,%.4f',
+            (float) $incident->latitude,
+            (float) $incident->longitude,
+        );
 
-        return "{$riderName} may have been in a motorcycle accident{$where} "
-            . "Severity: {$incident->severity}. Location: {$mapsLink}";
+        $head = "ImpactSense: {$riderName} may have crashed. "
+              . "Severity: {$incident->severity}.";
+        $tail = " {$mapsLink}";
+
+        if (blank($place)) {
+            return $head . $tail;
+        }
+
+        $budget = self::SEGMENT - strlen($head) - strlen($tail) - 2; // " " and "."
+        $clean  = rtrim(trim($place), " ,.");
+
+        if ($budget < 12) {
+            // No room worth having. A three-word fragment of a street name
+            // helps nobody, and the map link already carries the position.
+            return $head . $tail;
+        }
+
+        if (strlen($clean) > $budget) {
+            $clean = rtrim(Str::limit($clean, $budget, ''), " ,.");
+        }
+
+        return $head . ' ' . $clean . '.' . $tail;
     }
 
     /**

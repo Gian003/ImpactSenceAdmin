@@ -77,9 +77,15 @@
                 <div class="row g-3 align-items-end">
                     <div class="col-md-3">
                         <label class="form-label" style="font-size:.78rem; color:#475569; font-weight:600;">Badge
-                            Number</label>
+                            Number <span style="font-weight:400; color:#94a3b8;">({{ \App\Models\PersonnelRoster::BADGE_DIGITS }} digits)</span></label>
+                        {{-- inputmode numeric brings up the number pad on a tablet
+                             at the desk; maxlength and pattern stop a typo being
+                             submitted at all. The server checks it again. --}}
                         <input type="text" name="badge_number" class="form-control form-control-sm"
-                            placeholder="e.g. P01-001"
+                            placeholder="e.g. 918738"
+                            inputmode="numeric" pattern="[0-9]{{ '{' }}{{ \App\Models\PersonnelRoster::BADGE_DIGITS }}{{ '}' }}"
+                            maxlength="{{ \App\Models\PersonnelRoster::BADGE_DIGITS }}"
+                            title="{{ \App\Models\PersonnelRoster::BADGE_DIGITS }}-digit PNP ID"
                             style="border-color:#e8d5d9; font-size:.83rem; border-radius:7px; font-family:monospace;"
                             value="{{ old('badge_number') }}" required>
                     </div>

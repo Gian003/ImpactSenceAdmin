@@ -19,8 +19,20 @@ class FcmService
         $projectId   = config('services.fcm.project_id');
         $accessToken = $this->getAccessToken();
 
-        if (! $projectId || ! $accessToken) {
-            Log::warning('FCM not configured — skipping push notification.');
+        if (! $projectId) {
+            Log::warning('FCM push skipped: services.fcm.project_id is empty.');
+            return false;
+        }
+
+        if (! $accessToken) {
+            // Deliberately not "not configured". getAccessToken() returns null
+            // for a missing service account, for a malformed one, AND for a
+            // token exchange that failed because Google was unreachable. The
+            // old wording asserted the first and sent people hunting for
+            // credentials that were present and correct all along.
+            Log::warning('FCM push skipped: no access token. Check the service account at '
+                . 'services.fcm.service_account_json, and reachability of oauth2.googleapis.com. '
+                . 'A preceding "FCM token exchange threw" line means it was the network.');
             return false;
         }
 
